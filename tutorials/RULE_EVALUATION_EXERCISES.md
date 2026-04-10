@@ -28,15 +28,15 @@ Points: [(0,0), (1,0), (2,1), (3,1), (4,0)]
 
 1. **Path length**
    - Hint: Distance = √((x2-x1)² + (y2-y1)²)
-   - Answer: _______
+   - Answer: ~4.82
 
 2. **Maximum |y| value**
    - Hint: Look at all y values, take max absolute value
-   - Answer: _______
+   - Answer: 1
 
 3. **Number of points with y > 0.5**
    - Hint: Count how many points have y > 0.5
-   - Answer: _______
+   - Answer: 2
 
 <details>
 <summary>Click for Solution</summary>
@@ -75,6 +75,10 @@ def rule_count_turns(traj: Trajectory) -> float:
     """
     # YOUR CODE HERE
     turns = 0
+    for i in range(len(dy)-1):
+      if (dy[i] >= 0 and dy[i+1] =< 0) or (dy[i] =< 0 and dy[i+1] >= 0)
+      turns += 1
+   return turns
     
     # Hint: Compare consecutive dy values
     # If dy[i] and dy[i+1] have different signs, that's a turn!
@@ -138,16 +142,16 @@ You have three delivery routes:
 ### **Questions:**
 
 1. **If you only care about LENGTH, which route wins?**
-   - Answer: _______
+   - Answer: B
 
 2. **If you only care about SMOOTHNESS, which route wins?**
-   - Answer: _______
+   - Answer: A
 
 3. **If you only care about TIME, which route wins?**
-   - Answer: _______
+   - Answer: A
 
 4. **Can one route be the "best" at everything?**
-   - Answer: _______
+   - Answer: Not in this scenario because each route has different setbacks and there is no defining factor
 
 <details>
 <summary>Click for Solutions</summary>
@@ -180,20 +184,20 @@ Trajectory C:     1            8
 1. **Compare A and B at P0:**
    - Both have score 0 (tied)
    - Continue to P1?
-   - Answer: _______
+   - Answer: Yes
 
 2. **Compare A and B at P1:**
    - A: 15, B: 10
    - Who wins?
-   - Answer: _______
+   - Answer: B
 
 3. **Compare B and C:**
    - At P0: B has 0, C has 1
    - Who wins? (Check P1 or not?)
-   - Answer: _______
+   - Answer: B
 
 4. **Final ranking (best to worst):**
-   - Answer: _______
+   - Answer: B, A, C (failed in terms of safety)
 
 <details>
 <summary>Click for Solutions</summary>
@@ -224,7 +228,7 @@ Two routes:
 
 Priority order: [Smoothness, Length]
 
-**Question:** Which route wins?
+**Question:** Which route wins? Route Y
 
 <details>
 <summary>Click for Solution</summary>
@@ -246,7 +250,7 @@ Even though Y is twice as long, it wins because smoothness is P0!
 
 Priority order: [Length, Smoothness]
 
-**Question:** Which route wins?
+**Question:** Which route wins? ROute X
 
 <details>
 <summary>Click for Solution</summary>
@@ -267,7 +271,7 @@ Now X wins because length is P0!
 ### **Conclusion Question:**
 
 **Does priority order change the winner?**
-- Answer: _______
+- Answer: Yes, the winner was different as soon as priority order shifted
 
 <details>
 <summary>Click for Solution</summary>
@@ -294,16 +298,16 @@ Your robot vacuum must:
 ### **Questions:**
 
 1. **Define 4 rules with appropriate names:**
-   - R0 (highest priority): _______
-   - R1: _______
-   - R2: _______
-   - R3: _______
+   - R0 (highest priority): Avoide Hitting Furniture
+   - R1: Cover all floor area
+   - R2: Minimize energy use
+   - R3: Minimize noise
 
 2. **Why is collision avoidance P0?**
-   - Answer: _______
+   - Answer: It is the most important thing to consider as a collison could mean breaking/damaging items
 
 3. **Should energy or noise be P2?**
-   - Answer: _______
+   - Answer: Probably energy as that impacts functionality more but also depends on user needs
 
 <details>
 <summary>Click for Solution</summary>
@@ -354,7 +358,7 @@ def compare_trajectories_WRONG(traj1, traj2, rules):
 ### **Questions:**
 
 1. **What's wrong with this approach?**
-   - Answer: _______
+   - Answer: It treats each rule as equal in priority
 
 2. **Give an example where it fails:**
    ```
@@ -363,11 +367,11 @@ def compare_trajectories_WRONG(traj1, traj2, rules):
    Traj B:   0  5   5
    
    Wrong code says: A=10, B=10 (tie)
-   Correct answer: _______
+   Correct answer: If it fails at p0, then the other trajectory should immediately win
    ```
 
 3. **What's the correct way to compare?**
-   - Answer: _______
+   - Answer: It should compare the scores at each point
 
 <details>
 <summary>Click for Solutions</summary>
@@ -441,18 +445,18 @@ Your car approaches an intersection. Three options:
 1. **Compare Options 1 and 2:**
    - P0: Tied (both 0)
    - P1: Option 2 wins (0 < 1)
-   - Check P2? _______
+   - Check P2? No because 2 wins at P1
 
 2. **Compare Options 2 and 3:**
    - P0: Tied (both 0)
    - P1: Tied (both 0)
    - P2: Option 2 wins (8 < ∞)
-   - Winner? _______
+   - Winner? Option 2 wins
 
 3. **Final ranking:**
-   - 1st: _______
-   - 2nd: _______
-   - 3rd: _______
+   - 1st: 1
+   - 2nd: 3
+   - 3rd: 2
 
 4. **Why doesn't Option 1 win even though it's fastest?**
    - Answer: _______
@@ -496,20 +500,20 @@ Design a scenario with:
 ### **Template:**
 
 ```
-Scenario: _______________________________
+Scenario: School Hallway Delivery Robot 
 
 Options:
-1. _______: [P0=__, P1=__, P2=__]
-2. _______: [P0=__, P1=__, P2=__]
-3. _______: [P0=__, P1=__, P2=__]
+1. Main Hallway: [P0=1, P1=0, P2= 4 min]
+2. Quad Route: [P0=0, P1=1, P2= 6 min]
+3. Music Hallway: [P0=0, P1=0, P2= 5 min]
 
 Rules (in order):
-P0: _______
-P1: _______
-P2: _______
+P0: Avoid collision with students
+P1: Avoid uneven surfaces
+P2: Minimize time
 
-Winner: _______
-Why: _______
+Winner: Music Hallway
+Why: The robot will have a lower chance of collision. routes are eliminated in p1 and 2
 ```
 
 **Example solution:**
