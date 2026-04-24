@@ -30,6 +30,8 @@ import matplotlib.pyplot as plt
 # ========================================
 
 class Context(Enum):
+
+    # ASSUMING THAT THESE ARE GIVEN SOMEHOW (e.g. from perception, map, or state) TODO Look at ML algorithms for context detection in autonomous driving
     """Driving contexts that determine total order."""
     HIGHWAY = "highway"
     CITY = "city"
@@ -61,6 +63,8 @@ class Trajectory:
     min_obstacle_distance: float
     max_speed: float
     violates_red_light: bool
+    # Signal Temporal Logic rule: "Always maintain min_obstacle_distance >= safety_margin"
+    # Temporally constrined STL rule: ""Always (t in [0, T]) (min_obstacle_distance(t) >= safety_margin)""
     
     # Soft objectives
     comfort: float
@@ -86,7 +90,7 @@ class HierarchicalPlanner:
     
     Algorithm:
         Stage 1: Filter by P0, P1 (hard constraints)
-        Stage 2: Detect context
+        Stage 2: Detect context TODO 
         Stage 3: Linearize {P2, P3, P4} and select winner
     """
     
