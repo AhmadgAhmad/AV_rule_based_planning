@@ -84,7 +84,7 @@ class Trajectory:
         time: Time to complete trajectory (s)
     """
     id: int
-    path: List[Tuple[float, float]]
+    path: List[Tuple[float, float]] # the actual geometric trajectory (list of waypoints)
     
     # Hard constraints
     min_obstacle_distance: float
@@ -231,6 +231,12 @@ class SamplingBasedGenerator:
                 
                 # Hard constraints
                 min_obstacle_distance=min_dist,
+                
+                # FIXME: These are just placeholders. In a real implementation, these would be computed based on the path and environment. 
+                # For example, max_speed could be based on curvature (tighter curves → lower speed), and violates_red_light could be determined by checking if the path crosses any red light locations.
+                # For this demo, we will randomly assign these values to simulate a variety of trajectories.
+                #  TODO controbution: Use Temporal Logic to define the rules. 
+                
                 max_speed=random.uniform(8, 18),  # Sampled for now
                 violates_red_light=(random.random() < 0.1),  # 10% violate
                 
