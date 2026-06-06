@@ -266,7 +266,7 @@ class CARLAHierarchicalPlanner:
     Same algorithm, CARLA integration!
     """
     
-    def __init__(self, safety_margin=1.5, speed_limit=15.0):
+    def __init__(self, safety_margin=1.5, speed_limit=5.0):
         self.safety_margin = safety_margin
         self.speed_limit = speed_limit
     
@@ -390,7 +390,7 @@ def execute_trajectory(trajectory, vehicle):
     # Get target waypoint (first in path)
     target = trajectory.waypoints[0]
     current_location = vehicle.get_location()
-    
+
     # Compute steering
     direction = target - current_location
     forward = vehicle.get_transform().get_forward_vector()
@@ -435,6 +435,8 @@ def main_carla():
     4. Evaluate (hierarchical)
     5. Execute best
     """
+    client = None
+    vehicle = None
     
     print("="*70)
     print(" CARLA SAMPLING-BASED HIERARCHICAL PLANNING")
@@ -444,20 +446,52 @@ def main_carla():
         # Connect to CARLA
         print("\n1. Connecting to CARLA...")
         client = carla.Client('localhost', 2000)
-        client.set_timeout(10.0)
+        client.set_timeout(20.0)
         world = client.get_world()
         print("   ✅ Connected!")
+
         
-        # Spawn vehicle
-        print("\n2. Spawning vehicle...")
+        # spawn vehicle
         blueprint_library = world.get_blueprint_library()
         vehicle_bp = blueprint_library.find('vehicle.tesla.model3')
+
+        print("\n[STEP 3] Positioning camera...")
+        
         
         spawn_points = world.get_map().get_spawn_points()
         spawn_point = spawn_points[0]
-        
+       
+        #spawn the vehicle
         vehicle = world.spawn_actor(vehicle_bp, spawn_point)
         print(f"   ✅ Spawned Tesla Model 3 at {spawn_point.location}")
+        
+        spectator = world.get_spectator()
+        vehicle_loc = vehicle.get_transform().location
+
+        
+        # SPAWNING PEDESTRIANS
+        print("\nSpawning pedestrians")
+        
+        #Find the blueprint of pedestrian
+        walker_bp = world.get_blueprint_library().filter("walker.pedestrian.*")
+        controller_bp = world.get_blueprint_library().find('controller.ai.walker')
+        
+        # Request a random valid navigation mesh location
+        trans = carla.Transform()
+        trans.location = world.get_random_location_from_navigation()
+        while trans.location is None:
+            trans.location = world.get_random_location_from_navigation()
+
+        walker = random.choice(walker_bp)
+        # Spawn the pedestrian actor into the world at the chosen location
+        actor = world.spawn_actor(walker, trans)
+        world.wait_for_tick()
+        controller = world.spawn_actor(controller_bp, carla.Transform(), actor)
+        world.wait_for_tick()
+
+        controller.start()
+        controller.go_to_location(world.get_random_location_from_navigation())
+        print("Spawn location:", trans.location)
         
         # Set goal
         goal_point = spawn_points[min(10, len(spawn_points)-1)]
@@ -465,7 +499,7 @@ def main_carla():
         print(f"   Goal: {goal}")
         
         # Wait for vehicle to settle
-        time.sleep(2)
+        time.sleep(2) 
         
         # Generate trajectories
         print("\n3. Generating trajectories...")
@@ -497,6 +531,11 @@ def main_carla():
             for step in range(20):
                 control = execute_trajectory(best, vehicle)
                 vehicle.apply_control(control)
+
+                tf = vehicle.get_transform()
+                cam_loc = tf.location + carla.Location(x=-6, z=70)
+                cam_rot = carla.Rotation(pitch=-90, yaw=tf.rotation.yaw)
+                spectator.set_transform(carla.Transform(cam_loc, cam_rot))
                 time.sleep(0.1)
             
             print("   ✅ Execution complete!")
