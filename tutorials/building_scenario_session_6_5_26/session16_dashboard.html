@@ -1,0 +1,1530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session 16 — Intersection Scenarios</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;700&family=Space+Grotesk:wght@300;400;500;700&display=swap');
+
+        :root {
+            --bg:        #0b0e13;
+            --surface:   #131720;
+            --panel:     #1a2030;
+            --border:    #2a3450;
+            --amber:     #f5a623;
+            --amber-dim: #a06810;
+            --green:     #3ddc84;
+            --yellow:    #f5d742;
+            --red:       #ff5f57;
+            --blue:      #3d9ef5;
+            --muted:     #5a6a8a;
+            --text:      #c8d4e8;
+            --text-dim:  #7a8aaa;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* ─── HEADER ─────────────────────────────────────────────── */
+        header {
+            border-bottom: 1px solid var(--border);
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--surface);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-left { display: flex; align-items: center; gap: 16px; }
+
+        .logo {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.75em;
+            color: var(--amber);
+            letter-spacing: 0.15em;
+            background: rgba(245,166,35,0.1);
+            border: 1px solid var(--amber-dim);
+            padding: 4px 10px;
+            border-radius: 2px;
+        }
+
+        header h1 {
+            font-size: 1.15em;
+            font-weight: 500;
+            color: var(--text);
+            letter-spacing: 0.02em;
+        }
+
+        header h1 span { color: var(--amber); }
+
+        .status-dot {
+            width: 8px; height: 8px;
+            background: var(--green);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--green);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .header-right {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.75em;
+            color: var(--text-dim);
+        }
+
+        /* ─── LAYOUT ──────────────────────────────────────────────── */
+        .layout {
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            min-height: calc(100vh - 65px);
+        }
+
+        /* ─── SIDEBAR ─────────────────────────────────────────────── */
+        .sidebar {
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            padding: 24px 0;
+        }
+
+        .sidebar-section {
+            margin-bottom: 32px;
+        }
+
+        .sidebar-label {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.65em;
+            letter-spacing: 0.15em;
+            color: var(--muted);
+            text-transform: uppercase;
+            padding: 0 20px;
+            margin-bottom: 8px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 20px;
+            cursor: pointer;
+            color: var(--text-dim);
+            font-size: 0.88em;
+            font-weight: 400;
+            transition: all 0.15s;
+            border-left: 2px solid transparent;
+        }
+
+        .nav-item:hover {
+            color: var(--text);
+            background: rgba(255,255,255,0.03);
+        }
+
+        .nav-item.active {
+            color: var(--amber);
+            border-left-color: var(--amber);
+            background: rgba(245,166,35,0.05);
+        }
+
+        .nav-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .dot-green { background: var(--green); box-shadow: 0 0 5px var(--green); }
+        .dot-yellow { background: var(--yellow); box-shadow: 0 0 5px var(--yellow); }
+        .dot-red { background: var(--red); box-shadow: 0 0 5px var(--red); }
+        .dot-blue { background: var(--blue); box-shadow: 0 0 5px var(--blue); }
+        .dot-amber { background: var(--amber); box-shadow: 0 0 5px var(--amber); }
+
+        .timeline-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 7px 20px;
+            font-size: 0.83em;
+            color: var(--text-dim);
+        }
+
+        .timeline-time {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.75em;
+            color: var(--muted);
+            min-width: 40px;
+        }
+
+        /* ─── MAIN CONTENT ────────────────────────────────────────── */
+        .main {
+            padding: 36px 48px;
+            overflow-y: auto;
+        }
+
+        .panel {
+            display: none;
+        }
+
+        .panel.active {
+            display: block;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ─── PANEL: OVERVIEW ─────────────────────────────────────── */
+        .page-title {
+            font-size: 1.8em;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 6px;
+        }
+
+        .page-title span { color: var(--amber); }
+
+        .page-sub {
+            color: var(--text-dim);
+            font-size: 0.95em;
+            margin-bottom: 32px;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 20px;
+        }
+
+        .card-label {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.65em;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+
+        .card-value {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: var(--amber);
+        }
+
+        .card-desc {
+            margin-top: 6px;
+            font-size: 0.83em;
+            color: var(--text-dim);
+        }
+
+        .section-title {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.7em;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin: 32px 0 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .goal-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .goal-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 14px 18px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+
+        .goal-num {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.75em;
+            color: var(--amber);
+            background: rgba(245,166,35,0.1);
+            border: 1px solid var(--amber-dim);
+            width: 22px; height: 22px;
+            border-radius: 3px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        /* ─── SCENARIO PANELS ─────────────────────────────────────── */
+        .scenario-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 24px;
+        }
+
+        .scenario-badge {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.7em;
+            letter-spacing: 0.1em;
+            padding: 4px 10px;
+            border-radius: 2px;
+            font-weight: 500;
+        }
+
+        .badge-green { background: rgba(61,220,132,0.12); color: var(--green); border: 1px solid rgba(61,220,132,0.3); }
+        .badge-yellow { background: rgba(245,215,66,0.12); color: var(--yellow); border: 1px solid rgba(245,215,66,0.3); }
+        .badge-red { background: rgba(255,95,87,0.12); color: var(--red); border: 1px solid rgba(255,95,87,0.3); }
+        .badge-blue { background: rgba(61,158,245,0.12); color: var(--blue); border: 1px solid rgba(61,158,245,0.3); }
+
+        .scenario-title {
+            font-size: 1.6em;
+            font-weight: 700;
+        }
+
+        .scenario-cols {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .info-block {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            padding: 18px;
+        }
+
+        .info-block h4 {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.65em;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 12px;
+        }
+
+        .info-block ul {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+
+        .info-block li {
+            font-size: 0.88em;
+            color: var(--text-dim);
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .info-block li::before {
+            content: '›';
+            color: var(--amber);
+            flex-shrink: 0;
+        }
+
+        /* ─── TWTL FORMULA ────────────────────────────────────────── */
+        .formula-box {
+            background: #0d1117;
+            border: 1px solid var(--amber-dim);
+            border-radius: 5px;
+            padding: 20px 24px;
+            margin: 20px 0;
+        }
+
+        .formula-box .formula-label {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.65em;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--amber);
+            margin-bottom: 12px;
+        }
+
+        .formula-box .formula {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 1.1em;
+            color: #e8c97a;
+            line-height: 1.7;
+        }
+
+        .formula-box .formula-desc {
+            margin-top: 10px;
+            font-size: 0.82em;
+            color: var(--text-dim);
+            font-family: 'IBM Plex Mono', monospace;
+            line-height: 1.6;
+        }
+
+        /* ─── CODE BLOCKS ─────────────────────────────────────────── */
+        .code-wrap {
+            margin: 20px 0;
+        }
+
+        .code-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-bottom: none;
+            border-radius: 5px 5px 0 0;
+            padding: 8px 16px;
+        }
+
+        .code-filename {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.75em;
+            color: var(--text-dim);
+        }
+
+        .code-lang {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.65em;
+            color: var(--muted);
+            letter-spacing: 0.1em;
+        }
+
+        pre {
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: 0 0 5px 5px;
+            padding: 20px;
+            overflow-x: auto;
+            margin: 0;
+        }
+
+        code {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.92em;
+            line-height: 1.8;
+        }
+
+        .kw  { color: #569cd6; font-weight: 600; }
+        .fn  { color: #dcdcaa; }
+        .st  { color: #ce9178; }
+        .cm  { color: #4a6a4a; font-style: italic; }
+        .nm  { color: #b5cea8; }
+        .cls { color: #4ec9b0; font-weight: 600; }
+
+        /* ─── TAGS / ACTORS ───────────────────────────────────────── */
+        .actor-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 12px 0;
+        }
+
+        .actor-tag {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.72em;
+            padding: 4px 10px;
+            border-radius: 3px;
+            border: 1px solid;
+        }
+
+        .tag-vehicle { color: var(--blue); border-color: rgba(61,158,245,0.3); background: rgba(61,158,245,0.08); }
+        .tag-ped { color: #c084fc; border-color: rgba(192,132,252,0.3); background: rgba(192,132,252,0.08); }
+        .tag-light { color: var(--yellow); border-color: rgba(245,215,66,0.3); background: rgba(245,215,66,0.08); }
+        .tag-ego { color: var(--amber); border-color: rgba(245,166,35,0.3); background: rgba(245,166,35,0.08); }
+
+        /* ─── STEP LIST ───────────────────────────────────────────── */
+        .steps {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .step {
+            display: grid;
+            grid-template-columns: 28px 1fr;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .step-num {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.7em;
+            color: var(--bg);
+            background: var(--amber);
+            width: 22px; height: 22px;
+            border-radius: 2px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700;
+            margin-top: 3px;
+            flex-shrink: 0;
+        }
+
+        .step-text {
+            font-size: 0.88em;
+            color: var(--text-dim);
+            line-height: 1.5;
+        }
+
+        .step-text strong { color: var(--text); }
+
+        /* ─── DIVIDER ─────────────────────────────────────────────── */
+        .divider {
+            height: 1px;
+            background: var(--border);
+            margin: 28px 0;
+        }
+
+        /* ─── TWTL COMPARISON TABLE ───────────────────────────────── */
+        .twtl-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.87em;
+            margin: 16px 0;
+        }
+
+        .twtl-table th {
+            text-align: left;
+            padding: 10px 14px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.65em;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--muted);
+            background: #0d1117;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .twtl-table td {
+            padding: 10px 14px;
+            border-bottom: 1px solid rgba(42,52,80,0.5);
+            color: var(--text-dim);
+            vertical-align: top;
+        }
+
+        .twtl-table td:first-child {
+            font-family: 'IBM Plex Mono', monospace;
+            color: #e8c97a;
+            font-size: 0.9em;
+        }
+
+        .twtl-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+        /* ─── SCROLLBAR ───────────────────────────────────────────── */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--surface); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+    <div class="header-left">
+        <div class="logo">CARLA-SIM</div>
+        <h1>Session <span>16</span> &mdash; Intersection Test Scenarios</h1>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+        <div class="status-dot"></div>
+        <div class="header-right">Nidhi &bull; Autonomous Driving</div>
+    </div>
+</header>
+
+<div class="layout">
+    <!-- SIDEBAR -->
+    <nav class="sidebar">
+        <div class="sidebar-section">
+            <div class="sidebar-label">Navigation</div>
+            <div class="nav-item active" onclick="show('overview')">
+                <div class="nav-dot dot-amber"></div>
+                Overview
+            </div>
+            <div class="nav-item" onclick="show('s1')">
+                <div class="nav-dot dot-green"></div>
+                Scenario 1: Green Clear
+            </div>
+            <div class="nav-item" onclick="show('s2')">
+                <div class="nav-dot dot-yellow"></div>
+                Scenario 2: Yellow Decision
+            </div>
+            <div class="nav-item" onclick="show('s3')">
+                <div class="nav-dot dot-red"></div>
+                Scenario 3: Red Waiting
+            </div>
+            <div class="nav-item" onclick="show('s4')">
+                <div class="nav-dot dot-blue"></div>
+                Scenario 4: Blocked + Peds
+            </div>
+            <div class="nav-item" onclick="show('twtl')">
+                <div class="nav-dot dot-amber"></div>
+                TWTL Formulas
+            </div>
+        </div>
+
+        <div class="sidebar-section">
+            <div class="sidebar-label">Session Timeline</div>
+            <div class="timeline-item">
+                <span class="timeline-time">0:00</span>
+                <span>Review last session &amp; set today's goal</span>
+            </div>
+            <div class="timeline-item">
+                <span class="timeline-time">0:10</span>
+                <span>Walk through four scenario descriptions</span>
+            </div>
+            <div class="timeline-item">
+                <span class="timeline-time">0:25</span>
+                <span>Review Scenario 1 code together</span>
+            </div>
+            <div class="timeline-item">
+                <span class="timeline-time">0:40</span>
+                <span>Nidhi runs Scenario 1 live in CARLA</span>
+            </div>
+            <div class="timeline-item">
+                <span class="timeline-time">0:55</span>
+                <span>Debug, screenshots, commit to GitHub</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- MAIN -->
+    <main class="main">
+
+        <!-- ─── OVERVIEW ──────────────────────────────────────── -->
+        <div id="panel-overview" class="panel active">
+            <div class="page-title">Session <span>16</span></div>
+            <div class="page-sub">Build four intersection test scenarios to validate the hierarchical planner</div>
+
+            <div class="card-grid">
+                <div class="card">
+                    <div class="card-label">Today's Goal</div>
+                    <div class="card-value">4 Scenarios</div>
+                    <div class="card-desc">Design and document all four; implement Scenario 1 live</div>
+                </div>
+                <div class="card">
+                    <div class="card-label">Start Point</div>
+                    <div class="card-value">Town05</div>
+                    <div class="card-desc">4-way signalized intersection with pedestrian crosswalks</div>
+                </div>
+                <div class="card">
+                    <div class="card-label">Deliverable</div>
+                    <div class="card-value">scenario_1.py</div>
+                    <div class="card-desc">Working code + screenshots committed to GitHub</div>
+                </div>
+                <div class="card">
+                    <div class="card-label">Session</div>
+                    <div class="card-value">60 min</div>
+                    <div class="card-desc">Review → Code → Run → Debug → Commit</div>
+                </div>
+            </div>
+
+            <div class="section-title">Session Goals</div>
+            <ul class="goal-list">
+                <li class="goal-item">
+                    <div class="goal-num">1</div>
+                    Understand all four scenario requirements: actors, positions, light states, and what each tests in the planner
+                </li>
+                <li class="goal-item">
+                    <div class="goal-num">2</div>
+                    Spawn the ego vehicle at the correct approach position for a 4-way intersection in CARLA
+                </li>
+                <li class="goal-item">
+                    <div class="goal-num">3</div>
+                    Find and configure the intersection's traffic lights programmatically (not spawning new ones)
+                </li>
+                <li class="goal-item">
+                    <div class="goal-num">4</div>
+                    Verify the setup with the overhead camera angle Nidhi configured last session
+                </li>
+                <li class="goal-item">
+                    <div class="goal-num">5</div>
+                    Commit scenario_1.py with clear comments and at least two screenshots to GitHub
+                </li>
+            </ul>
+
+            <div class="section-title">Four Scenarios at a Glance</div>
+
+            <table class="twtl-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Name</th>
+                        <th>Light State</th>
+                        <th>Other Actors</th>
+                        <th>What it Tests</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>S1</td>
+                        <td>Green, Clear</td>
+                        <td>🟢 Green</td>
+                        <td>None</td>
+                        <td>Planner proceeds freely through green intersection</td>
+                    </tr>
+                    <tr>
+                        <td>S2</td>
+                        <td>Yellow, Decision</td>
+                        <td>🟡 Yellow (approaching)</td>
+                        <td>None</td>
+                        <td>Planner decides stop-or-go based on distance &amp; speed</td>
+                    </tr>
+                    <tr>
+                        <td>S3</td>
+                        <td>Red, Waiting Traffic</td>
+                        <td>🔴 Red</td>
+                        <td>2 stopped vehicles</td>
+                        <td>Planner stops safely behind queued traffic</td>
+                    </tr>
+                    <tr>
+                        <td>S4</td>
+                        <td>Blocked + Pedestrians</td>
+                        <td>🟢 Green</td>
+                        <td>Pedestrians crossing</td>
+                        <td>Planner yields to pedestrians despite green light</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="section-title">Where TWTL Fits</div>
+            <div class="info-block">
+                <h4>Rule Priority (from last session)</h4>
+                <ul>
+                    <li>P0 — Safety: Never collide. Expressed as H<sub>T</sub> ¬π<sub>collision</sub></li>
+                    <li>P1 — Legal compliance: Obey signals. H<sub>T</sub> π<sub>green</sub> · stop on red</li>
+                    <li>P2 — Soft preferences: Comfort, speed, efficiency (AGM robustness)</li>
+                </ul>
+                <br>
+                <p style="font-size:0.88em;color:var(--text-dim)">
+                    Each scenario is designed to stress-test one level of this hierarchy. Go to the <strong style="color:var(--amber)">TWTL Formulas</strong> tab for all four formal specifications.
+                </p>
+            </div>
+        </div>
+
+        <!-- ─── SCENARIO 1 ─────────────────────────────────────── -->
+        <div id="panel-s1" class="panel">
+            <div class="scenario-header">
+                <span class="scenario-badge badge-green">SCENARIO 1</span>
+                <div class="scenario-title">Green Light — Clear Intersection</div>
+            </div>
+
+            <div class="info-block" style="margin-bottom:20px;border-color:rgba(61,220,132,0.3)">
+                <h4>Purpose</h4>
+                <ul>
+                    <li>Establishes the <strong>simplest baseline</strong>: planner should drive straight through without hesitation</li>
+                    <li>Validates basic CARLA setup: ego spawn, light detection, waypoint tracking</li>
+                    <li>Any planner that fails here has fundamental navigation issues</li>
+                </ul>
+            </div>
+
+            <div class="scenario-cols">
+                <div class="info-block">
+                    <h4>Actors Required</h4>
+                    <div class="actor-grid">
+                        <span class="actor-tag tag-ego">Ego Vehicle (Tesla Model 3)</span>
+                        <span class="actor-tag tag-light">Traffic Light → GREEN</span>
+                    </div>
+                    <ul style="margin-top:14px">
+                        <li>Ego spawns 40m before stop line</li>
+                        <li>Facing the intersection (0° or 90° yaw)</li>
+                        <li>No other vehicles or pedestrians</li>
+                        <li>Light forced to GREEN for full scenario</li>
+                    </ul>
+                </div>
+                <div class="info-block">
+                    <h4>Expected Planner Behavior</h4>
+                    <ul>
+                        <li>Approach at normal speed (≤ speed limit)</li>
+                        <li>Detect GREEN light via semantic sensor</li>
+                        <li>No deceleration required for intersection</li>
+                        <li>Pass through center of intersection</li>
+                        <li>Continue for 30m on the far side</li>
+                        <li>Zero violations of any TWTL rule</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="formula-box">
+                <div class="formula-label">TWTL Specification — Scenario 1</div>
+                <div class="formula">
+φ₁ = [ H₂ π<sub>intersection</sub> ]<sub>[0,15]</sub> ∧ H<sub>T</sub> ¬π<sub>collision</sub> ∧ H<sub>T</sub> π<sub>green_ok</sub>
+                </div>
+                <div class="formula-desc">
+// Read: "Within 15 seconds, pass through the intersection (stay 2 steps);<br>
+//        AND never collide; AND only proceed when light is green"<br>
+// Robustness ρ₁ > 0  ↔  scenario passed ✓
+                </div>
+            </div>
+
+            <div class="section-title">Session Steps</div>
+            <ul class="steps">
+                <li class="step"><div class="step-num">1</div><div class="step-text"><strong>Load Town05</strong> — use <code>client.load_world('Town05')</code>, find the 4-way intersection at approx. (x=0, y=0)</div></li>
+                <li class="step"><div class="step-num">2</div><div class="step-text"><strong>Spawn ego</strong> — 40m south of intersection, facing north. Use spawn point closest to (x=0, y=-40)</div></li>
+                <li class="step"><div class="step-num">3</div><div class="step-text"><strong>Find traffic light</strong> — query world actors, filter by type <code>traffic.traffic_light</code>, identify the one facing ego</div></li>
+                <li class="step"><div class="step-num">4</div><div class="step-text"><strong>Force green</strong> — call <code>light.set_state(carla.TrafficLightState.Green)</code> and freeze it with <code>light.freeze(True)</code></div></li>
+                <li class="step"><div class="step-num">5</div><div class="step-text"><strong>Run scenario</strong> — tick world, capture camera, verify ego passes through intersection cleanly</div></li>
+            </ul>
+
+            <div class="divider"></div>
+
+            <div class="code-wrap">
+                <div class="code-header">
+                    <span class="code-filename">scenario_1_green_clear.py</span>
+                    <span class="code-lang">PYTHON</span>
+                </div>
+<pre><code><span class="cm"># Scenario 1: Green Light, Clear Intersection
+# Purpose: Verify planner proceeds through green light without hesitation
+# Expected: Ego passes through; ρ(φ₁) > 0</span>
+
+<span class="kw">import</span> carla
+<span class="kw">import</span> time
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="kw">def</span> <span class="fn">setup_scenario_1</span>(client, world):
+    <span class="kw">"""Set up Scenario 1: Green light, clear intersection."""</span>
+
+    carla_map = world.get_map()
+    blueprint_library = world.get_blueprint_library()
+
+    <span class="cm"># ── 1. Spawn ego vehicle ─────────────────────────────────────</span>
+    ego_bp = blueprint_library.find(<span class="st">'vehicle.tesla.model3'</span>)
+    ego_bp.set_attribute(<span class="st">'color'</span>, <span class="st">'255,255,255'</span>)   <span class="cm"># white for visibility</span>
+
+    <span class="cm"># 40m south of intersection center, facing north (yaw=90)</span>
+    ego_transform = carla.Transform(
+        carla.Location(x=<span class="nm">0.0</span>, y=<span class="nm">-40.0</span>, z=<span class="nm">0.5</span>),
+        carla.Rotation(yaw=<span class="nm">90.0</span>)
+    )
+
+    <span class="cm"># Use nearest safe spawn point to avoid spawning inside geometry</span>
+    spawn_points = carla_map.get_spawn_points()
+    ego_transform = <span class="fn">find_nearest_spawn</span>(spawn_points, ego_transform.location)
+
+    ego = world.spawn_actor(ego_bp, ego_transform)
+    <span class="kw">print</span>(<span class="st">f"[S1] Ego spawned at {ego.get_location()}"</span>)
+
+    <span class="cm"># ── 2. Find and configure traffic lights ─────────────────────</span>
+    traffic_light = <span class="fn">find_facing_light</span>(world, ego.get_location())
+
+    <span class="kw">if</span> traffic_light:
+        traffic_light.set_state(carla.TrafficLightState.Green)
+        traffic_light.freeze(<span class="kw">True</span>)      <span class="cm"># prevent light from changing state</span>
+        traffic_light.set_green_time(<span class="nm">60.0</span>)
+        <span class="kw">print</span>(<span class="st">f"[S1] Traffic light → GREEN (frozen)"</span>)
+    <span class="kw">else</span>:
+        <span class="kw">print</span>(<span class="st">"[S1] WARNING: No traffic light found, check intersection location"</span>)
+
+    <span class="cm"># ── 3. Attach overhead camera ────────────────────────────────</span>
+    camera = <span class="fn">attach_overhead_camera</span>(world, ego, blueprint_library)
+
+    <span class="kw">return</span> ego, traffic_light, camera
+
+
+<span class="kw">def</span> <span class="fn">find_nearest_spawn</span>(spawn_points, target_location):
+    <span class="kw">"""Find closest spawn point to a target location."""</span>
+    nearest = <span class="kw">None</span>
+    min_dist = <span class="nm">float</span>(<span class="st">'inf'</span>)
+
+    <span class="kw">for</span> sp <span class="kw">in</span> spawn_points:
+        dist = sp.location.distance(target_location)
+        <span class="kw">if</span> dist < min_dist:
+            min_dist = dist
+            nearest = sp
+
+    <span class="kw">print</span>(<span class="st">f"[S1] Nearest spawn: {nearest.location} (dist={min_dist:.1f}m)"</span>)
+    <span class="kw">return</span> nearest
+
+
+<span class="kw">def</span> <span class="fn">find_facing_light</span>(world, ego_location, search_radius=<span class="nm">60.0</span>):
+    <span class="kw">"""Find the traffic light most likely facing the ego vehicle."""</span>
+    traffic_lights = world.get_actors().filter(<span class="st">'traffic.traffic_light'</span>)
+
+    nearest_light = <span class="kw">None</span>
+    min_dist = <span class="nm">float</span>(<span class="st">'inf'</span>)
+
+    <span class="kw">for</span> light <span class="kw">in</span> traffic_lights:
+        dist = light.get_location().distance(ego_location)
+        <span class="kw">if</span> dist < search_radius <span class="kw">and</span> dist < min_dist:
+            min_dist = dist
+            nearest_light = light
+
+    <span class="kw">if</span> nearest_light:
+        <span class="kw">print</span>(<span class="st">f"[S1] Found traffic light {nearest_light.id} at dist={min_dist:.1f}m"</span>)
+    <span class="kw">return</span> nearest_light
+
+
+<span class="kw">def</span> <span class="fn">attach_overhead_camera</span>(world, vehicle, blueprint_library, height=<span class="nm">25.0</span>):
+    <span class="kw">"""Attach a bird's-eye camera above the vehicle."""</span>
+    cam_bp = blueprint_library.find(<span class="st">'sensor.camera.rgb'</span>)
+    cam_bp.set_attribute(<span class="st">'image_size_x'</span>, <span class="st">'1280'</span>)
+    cam_bp.set_attribute(<span class="st">'image_size_y'</span>, <span class="st">'720'</span>)
+    cam_bp.set_attribute(<span class="st">'fov'</span>, <span class="st">'90'</span>)
+
+    cam_transform = carla.Transform(
+        carla.Location(x=<span class="nm">0.0</span>, z=height),
+        carla.Rotation(pitch=<span class="nm">-90.0</span>)     <span class="cm"># looking straight down</span>
+    )
+    camera = world.spawn_actor(cam_bp, cam_transform, attach_to=vehicle)
+    camera.listen(<span class="kw">lambda</span> img: img.save_to_disk(<span class="st">f'output/s1_{img.frame:06d}.png'</span>))
+    <span class="kw">print</span>(<span class="st">f"[S1] Overhead camera attached at z={height}m"</span>)
+    <span class="kw">return</span> camera
+
+
+<span class="kw">def</span> <span class="fn">run_scenario_1</span>():
+    <span class="kw">"""Main entry point for Scenario 1."""</span>
+    client = carla.Client(<span class="st">'localhost'</span>, <span class="nm">2000</span>)
+    client.set_timeout(<span class="nm">20.0</span>)
+
+    <span class="kw">print</span>(<span class="st">"[S1] Loading Town05..."</span>)
+    world = client.load_world(<span class="st">'Town05'</span>)
+    world.set_weather(carla.WeatherParameters.ClearNoon)
+
+    <span class="cm"># Synchronous mode for deterministic timing</span>
+    settings = world.get_settings()
+    settings.synchronous_mode = <span class="kw">True</span>
+    settings.fixed_delta_seconds = <span class="nm">0.05</span>   <span class="cm"># 20 Hz</span>
+    world.apply_settings(settings)
+
+    ego, light, camera = <span class="kw">None</span>, <span class="kw">None</span>, <span class="kw">None</span>
+
+    <span class="kw">try</span>:
+        ego, light, camera = <span class="fn">setup_scenario_1</span>(client, world)
+
+        <span class="cm"># Enable ego autopilot (or hook your hierarchical planner here)</span>
+        ego.set_autopilot(<span class="kw">True</span>)
+
+        <span class="kw">print</span>(<span class="st">"[S1] Running for 15 seconds — watch ego cross intersection..."</span>)
+        <span class="kw">for</span> tick <span class="kw">in</span> range(<span class="nm">300</span>):    <span class="cm"># 300 ticks × 0.05s = 15 seconds</span>
+            world.tick()
+
+            <span class="kw">if</span> tick % <span class="nm">20</span> == <span class="nm">0</span>:      <span class="cm"># print status every 1 second</span>
+                loc = ego.get_location()
+                vel = ego.get_velocity()
+                speed = (vel.x**<span class="nm">2</span> + vel.y**<span class="nm">2</span>)**<span class="nm">0.5</span> * <span class="nm">3.6</span>    <span class="cm"># km/h</span>
+                <span class="kw">print</span>(<span class="st">f"  t={tick*0.05:.1f}s | pos=({loc.x:.1f},{loc.y:.1f}) | speed={speed:.1f} km/h"</span>)
+
+        <span class="kw">print</span>(<span class="st">"[S1] Scenario complete. Check output/ for screenshots."</span>)
+
+    <span class="kw">finally</span>:
+        <span class="cm"># Always clean up actors</span>
+        <span class="kw">if</span> camera: camera.destroy()
+        <span class="kw">if</span> ego:    ego.destroy()
+
+        <span class="cm"># Restore async mode</span>
+        settings = world.get_settings()
+        settings.synchronous_mode = <span class="kw">False</span>
+        world.apply_settings(settings)
+        <span class="kw">print</span>(<span class="st">"[S1] Cleaned up."</span>)
+
+
+<span class="kw">if</span> __name__ == <span class="st">'__main__'</span>:
+    <span class="fn">run_scenario_1</span>()</code></pre>
+            </div>
+        </div>
+
+        <!-- ─── SCENARIO 2 ─────────────────────────────────────── -->
+        <div id="panel-s2" class="panel">
+            <div class="scenario-header">
+                <span class="scenario-badge badge-yellow">SCENARIO 2</span>
+                <div class="scenario-title">Yellow Light — Decision Point</div>
+            </div>
+
+            <div class="info-block" style="margin-bottom:20px;border-color:rgba(245,215,66,0.3)">
+                <h4>Purpose</h4>
+                <ul>
+                    <li>Tests the planner's <strong>stop-or-go decision</strong> under a yellow light</li>
+                    <li>The TWTL formula must capture the dilemma zone: if close enough, proceed; if far, stop</li>
+                    <li>Uses AGM robustness (η) because the decision is about smooth tradeoffs, not hard cutoffs</li>
+                </ul>
+            </div>
+
+            <div class="scenario-cols">
+                <div class="info-block">
+                    <h4>Actors Required</h4>
+                    <div class="actor-grid">
+                        <span class="actor-tag tag-ego">Ego Vehicle</span>
+                        <span class="actor-tag tag-light">Traffic Light → YELLOW</span>
+                    </div>
+                    <ul style="margin-top:14px">
+                        <li>Ego spawns 25m before stop line (dilemma zone)</li>
+                        <li>Initial speed: ~30 km/h</li>
+                        <li>Light switches to YELLOW at t=0</li>
+                        <li>Light turns RED after 3 seconds</li>
+                    </ul>
+                </div>
+                <div class="info-block">
+                    <h4>Expected Planner Behavior</h4>
+                    <ul>
+                        <li>Compute stopping distance: d = v²/2a</li>
+                        <li>If d > distance to stop line → proceed</li>
+                        <li>If d ≤ distance to stop line → brake hard</li>
+                        <li>At 30 km/h and a = 3 m/s² → d ≈ 12m</li>
+                        <li>So at 25m: should brake and stop</li>
+                        <li>No entry into intersection during RED</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="formula-box">
+                <div class="formula-label">TWTL Specification — Scenario 2</div>
+                <div class="formula">
+φ₂ = (d > d_stop → [ H₃ π<sub>stopped</sub> ]<sub>[0,5]</sub>) ∧ (d ≤ d_stop → [ H₁ π<sub>through</sub> ]<sub>[0,4]</sub>)
+     ∧ H<sub>T</sub> ¬π<sub>collision</sub> ∧ H<sub>T</sub> ¬π<sub>red_violation</sub>
+                </div>
+                <div class="formula-desc">
+// d = distance to stop line at moment light turns yellow<br>
+// d_stop = stopping distance given current speed<br>
+// Case 1 (d > d_stop): stop within 5 seconds for 3 seconds<br>
+// Case 2 (d ≤ d_stop): clear intersection within 4 seconds<br>
+// Always: no collision, no running red
+                </div>
+            </div>
+
+            <div class="section-title">Key Code: Yellow Light Timing</div>
+
+            <div class="code-wrap">
+                <div class="code-header">
+                    <span class="code-filename">scenario_2_yellow_decision.py  [key excerpt]</span>
+                    <span class="code-lang">PYTHON</span>
+                </div>
+<pre><code><span class="kw">def</span> <span class="fn">setup_yellow_light_sequence</span>(world, light):
+    <span class="kw">"""
+    Trigger a yellow → red sequence at t=0.
+    CARLA doesn't expose timing directly, so we force states manually.
+    """</span>
+    <span class="cm"># Step 1: Set light to yellow immediately</span>
+    light.set_state(carla.TrafficLightState.Yellow)
+    light.set_yellow_time(<span class="nm">3.0</span>)   <span class="cm"># 3 second yellow phase</span>
+    light.freeze(<span class="kw">False</span>)           <span class="cm"># allow it to cycle normally</span>
+    <span class="kw">print</span>(<span class="st">"[S2] Traffic light → YELLOW (3s), then RED"</span>)
+
+
+<span class="kw">def</span> <span class="fn">compute_stop_or_go</span>(ego, stop_line_y):
+    <span class="kw">"""Decide: should ego stop or proceed through yellow?"""</span>
+    <span class="kw">import</span> math
+
+    velocity = ego.get_velocity()
+    speed_ms = math.sqrt(velocity.x**<span class="nm">2</span> + velocity.y**<span class="nm">2</span>)   <span class="cm"># m/s</span>
+    location = ego.get_location()
+
+    distance_to_line = abs(stop_line_y - location.y)
+
+    <span class="cm"># Stopping distance: d = v² / (2a), using comfortable decel a=3 m/s²</span>
+    deceleration = <span class="nm">3.0</span>
+    stopping_distance = (speed_ms**<span class="nm">2</span>) / (<span class="nm">2</span> * deceleration)
+
+    decision = <span class="st">"GO"</span> <span class="kw">if</span> stopping_distance > distance_to_line <span class="kw">else</span> <span class="st">"STOP"</span>
+
+    <span class="kw">print</span>(<span class="st">f"[S2] speed={speed_ms*3.6:.1f} km/h | "</span>
+          <span class="st">f"dist_to_line={distance_to_line:.1f}m | "</span>
+          <span class="st">f"stop_dist={stopping_distance:.1f}m | "</span>
+          <span class="st">f"decision={decision}"</span>)
+
+    <span class="kw">return</span> decision, stopping_distance, distance_to_line
+
+
+<span class="kw">def</span> <span class="fn">compute_yellow_robustness</span>(trajectory, stop_line_y, light_history):
+    <span class="kw">"""
+    Compute TWTL robustness for Scenario 2.
+    ρ > 0 if planner made correct decision and didn't run red.
+    """</span>
+    red_violations = []
+    comfort_values = []
+
+    <span class="kw">for</span> i, state <span class="kw">in</span> enumerate(trajectory):
+        location, velocity, light_state = state
+
+        speed_ms = (velocity.x**<span class="nm">2</span> + velocity.y**<span class="nm">2</span>)**<span class="nm">0.5</span>
+        in_intersection = abs(location.y) < <span class="nm">10.0</span>   <span class="cm"># within 10m of center</span>
+
+        <span class="cm"># Rule: no RED violation (in intersection during red = bad)</span>
+        <span class="kw">if</span> light_state == <span class="st">'red'</span> <span class="kw">and</span> in_intersection:
+            red_violations.append(<span class="nm">-1.0</span>)
+        <span class="kw">else</span>:
+            red_violations.append(<span class="nm">1.0</span>)
+
+    <span class="cm"># ρ = min over all time steps (worst case wins)</span>
+    rho = min(red_violations)
+
+    <span class="kw">print</span>(<span class="st">f"[S2] TWTL Robustness ρ = {rho:.3f}"</span>)
+    <span class="kw">print</span>(<span class="st">f"[S2] {'PASSED ✓' if rho > 0 else 'FAILED ✗'}"</span>)
+    <span class="kw">return</span> rho</code></pre>
+            </div>
+        </div>
+
+        <!-- ─── SCENARIO 3 ─────────────────────────────────────── -->
+        <div id="panel-s3" class="panel">
+            <div class="scenario-header">
+                <span class="scenario-badge badge-red">SCENARIO 3</span>
+                <div class="scenario-title">Red Light — Waiting Traffic</div>
+            </div>
+
+            <div class="info-block" style="margin-bottom:20px;border-color:rgba(255,95,87,0.3)">
+                <h4>Purpose</h4>
+                <ul>
+                    <li>Tests <strong>safe distance following</strong> and red-light compliance simultaneously</li>
+                    <li>The planner must stop behind two vehicles, not just before the stop line</li>
+                    <li>Validates the P0 (safety) and P1 (legal) layers of the hierarchy interact correctly</li>
+                </ul>
+            </div>
+
+            <div class="scenario-cols">
+                <div class="info-block">
+                    <h4>Actors Required</h4>
+                    <div class="actor-grid">
+                        <span class="actor-tag tag-ego">Ego Vehicle</span>
+                        <span class="actor-tag tag-vehicle">NPC Vehicle 1 (stopped at line)</span>
+                        <span class="actor-tag tag-vehicle">NPC Vehicle 2 (behind NPC 1)</span>
+                        <span class="actor-tag tag-light">Traffic Light → RED</span>
+                    </div>
+                    <ul style="margin-top:14px">
+                        <li>NPC 1: stopped at stop line (y = -3m)</li>
+                        <li>NPC 2: stopped 8m behind NPC 1 (y = -11m)</li>
+                        <li>Ego spawns 45m back (y = -45m)</li>
+                        <li>Light held RED for full scenario (30s)</li>
+                    </ul>
+                </div>
+                <div class="info-block">
+                    <h4>Expected Planner Behavior</h4>
+                    <ul>
+                        <li>Detect vehicles ahead using LiDAR / depth</li>
+                        <li>Apply 2-second-rule following distance</li>
+                        <li>Stop ≥ 5m behind NPC 2 (at approx y = -18m)</li>
+                        <li>Maintain stop for full RED duration</li>
+                        <li>Never enter intersection during RED</li>
+                        <li>Zero collision events throughout</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="formula-box">
+                <div class="formula-label">TWTL Specification — Scenario 3</div>
+                <div class="formula">
+φ₃ = H<sub>T</sub> ¬π<sub>collision</sub>  ∧  H<sub>T</sub> ¬π<sub>red_entry</sub>  ∧  [ H₅ π<sub>stopped</sub> ]<sub>[0,30]</sub>
+                </div>
+                <div class="formula-desc">
+// Always: no collision (P0 — safety)<br>
+// Always: never enter intersection while light is RED (P1 — legal)<br>
+// Within 30s: come to full stop (v &lt; 0.5 m/s) and hold 5 time steps<br>
+// All three must hold simultaneously (conjunction)
+                </div>
+            </div>
+
+            <div class="section-title">Key Code: Spawning Stopped NPC Traffic</div>
+
+            <div class="code-wrap">
+                <div class="code-header">
+                    <span class="code-filename">scenario_3_red_waiting.py  [key excerpt]</span>
+                    <span class="code-lang">PYTHON</span>
+                </div>
+<pre><code><span class="kw">def</span> <span class="fn">spawn_waiting_traffic</span>(world, blueprint_library):
+    <span class="kw">"""
+    Spawn two stationary NPC vehicles queued at red light.
+    Returns list of spawned actors for cleanup.
+    """</span>
+    vehicles = []
+
+    <span class="cm"># Vehicle blueprints for traffic variety</span>
+    car_bps = [
+        blueprint_library.find(<span class="st">'vehicle.audi.a2'</span>),
+        blueprint_library.find(<span class="st">'vehicle.nissan.micra'</span>),
+    ]
+
+    <span class="cm"># NPC 1 — stopped at stop line, 3m before intersection center</span>
+    npc1_transform = carla.Transform(
+        carla.Location(x=<span class="nm">0.0</span>, y=<span class="nm">-3.0</span>, z=<span class="nm">0.5</span>),
+        carla.Rotation(yaw=<span class="nm">90.0</span>)
+    )
+
+    <span class="cm"># NPC 2 — stopped 8m behind NPC 1 (typical car length 4m + gap 4m)</span>
+    npc2_transform = carla.Transform(
+        carla.Location(x=<span class="nm">0.0</span>, y=<span class="nm">-11.0</span>, z=<span class="nm">0.5</span>),
+        carla.Rotation(yaw=<span class="nm">90.0</span>)
+    )
+
+    <span class="kw">for</span> i, (bp, transform) <span class="kw">in</span> enumerate(zip(car_bps, [npc1_transform, npc2_transform])):
+        <span class="kw">try</span>:
+            npc = world.spawn_actor(bp, transform)
+            <span class="cm"># Disable physics so NPC stays perfectly stationary</span>
+            npc.set_simulate_physics(<span class="kw">False</span>)
+            vehicles.append(npc)
+            <span class="kw">print</span>(<span class="st">f"[S3] NPC {i+1} spawned at {npc.get_location()}"</span>)
+        <span class="kw">except</span> RuntimeError <span class="kw">as</span> e:
+            <span class="kw">print</span>(<span class="st">f"[S3] Could not spawn NPC {i+1}: {e}"</span>)
+
+    <span class="kw">return</span> vehicles
+
+
+<span class="kw">def</span> <span class="fn">monitor_safe_following</span>(ego, npcs, carla_map):
+    <span class="kw">"""
+    Monitor: does ego maintain 2-second following distance?
+    Returns robustness value (positive = safe, negative = violation).
+    """</span>
+    ego_loc = ego.get_location()
+    ego_vel = ego.get_velocity()
+    ego_speed = (ego_vel.x**<span class="nm">2</span> + ego_vel.y**<span class="nm">2</span>)**<span class="nm">0.5</span>
+
+    <span class="cm"># Find closest NPC ahead</span>
+    min_dist = <span class="nm">float</span>(<span class="st">'inf'</span>)
+    <span class="kw">for</span> npc <span class="kw">in</span> npcs:
+        dist = ego_loc.distance(npc.get_location())
+        <span class="kw">if</span> dist < min_dist:
+            min_dist = dist
+
+    <span class="cm"># 2-second rule: required distance = 2s × speed + 2m buffer</span>
+    required_dist = <span class="nm">2.0</span> * ego_speed + <span class="nm">2.0</span>
+
+    <span class="cm"># Robustness: positive means we have enough margin</span>
+    robustness = min_dist - required_dist
+
+    <span class="kw">return</span> robustness, min_dist, required_dist</code></pre>
+            </div>
+        </div>
+
+        <!-- ─── SCENARIO 4 ─────────────────────────────────────── -->
+        <div id="panel-s4" class="panel">
+            <div class="scenario-header">
+                <span class="scenario-badge badge-blue">SCENARIO 4</span>
+                <div class="scenario-title">Blocked Intersection — Pedestrians Crossing</div>
+            </div>
+
+            <div class="info-block" style="margin-bottom:20px;border-color:rgba(61,158,245,0.3)">
+                <h4>Purpose</h4>
+                <ul>
+                    <li>Most complex scenario — tests whether <strong>P0 (safety) overrides P1 (green light)</strong></li>
+                    <li>The light is green, but pedestrians are crossing: planner must yield</li>
+                    <li>Directly validates the lexicographic priority of the TWTL rulebook</li>
+                </ul>
+            </div>
+
+            <div class="scenario-cols">
+                <div class="info-block">
+                    <h4>Actors Required</h4>
+                    <div class="actor-grid">
+                        <span class="actor-tag tag-ego">Ego Vehicle</span>
+                        <span class="actor-tag tag-light">Traffic Light → GREEN</span>
+                        <span class="actor-tag tag-ped">Pedestrian 1</span>
+                        <span class="actor-tag tag-ped">Pedestrian 2</span>
+                        <span class="actor-tag tag-ped">Pedestrian 3</span>
+                    </div>
+                    <ul style="margin-top:14px">
+                        <li>3 pedestrians crossing at crosswalk (perpendicular)</li>
+                        <li>Ped 1 starts at (−5, 0), walks east (+x direction)</li>
+                        <li>Ped 2 starts at (−3, 0), 2-second delay</li>
+                        <li>Ped 3 starts at (−1, 0), 4-second delay</li>
+                        <li>Ego starts 40m back, same as Scenario 1</li>
+                    </ul>
+                </div>
+                <div class="info-block">
+                    <h4>Expected Planner Behavior</h4>
+                    <ul>
+                        <li>Approach at normal speed (green light seen)</li>
+                        <li>Detect pedestrians via semantic segmentation</li>
+                        <li>Begin braking at ≥ 15m from crosswalk</li>
+                        <li>Stop completely before crosswalk (y ≈ -8)</li>
+                        <li>Wait until all pedestrians have cleared</li>
+                        <li>Resume after pedestrian path is clear</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="formula-box">
+                <div class="formula-label">TWTL Specification — Scenario 4</div>
+                <div class="formula">
+φ₄ = H<sub>T</sub> ¬π<sub>ped_collision</sub>
+     ∧ [H₃ π<sub>ped_clear</sub>]<sub>[0,∞]</sub> · [H₁ π<sub>through</sub>]<sub>[0,10]</sub>
+     ∧ H<sub>T</sub> ¬π<sub>collision</sub>
+                </div>
+                <div class="formula-desc">
+// P0 (Safety): NEVER hit a pedestrian — takes priority over all other rules<br>
+// P1 (Legal+Safe): Wait until pedestrians have cleared crosswalk (3 steps),<br>
+//                  then proceed through intersection within 10 seconds<br>
+// Note: Green light does NOT override safety — this is the key test!
+                </div>
+            </div>
+
+            <div class="section-title">Key Code: Spawning and Walking Pedestrians</div>
+
+            <div class="code-wrap">
+                <div class="code-header">
+                    <span class="code-filename">scenario_4_blocked_pedestrians.py  [key excerpt]</span>
+                    <span class="code-lang">PYTHON</span>
+                </div>
+<pre><code><span class="kw">def</span> <span class="fn">spawn_crossing_pedestrians</span>(world, blueprint_library, num_peds=<span class="nm">3</span>):
+    <span class="kw">"""
+    Spawn pedestrians walking across the intersection crosswalk.
+    Uses CARLA's walker AI controller to follow a path.
+    """</span>
+    ped_bps = blueprint_library.filter(<span class="st">'walker.pedestrian.*'</span>)
+    controller_bp = blueprint_library.find(<span class="st">'controller.ai.walker'</span>)
+
+    <span class="cm"># Start positions on the west sidewalk, staggered</span>
+    start_positions = [
+        carla.Transform(carla.Location(x=<span class="nm">-6.0</span>, y=<span class="nm">0.5</span>,  z=<span class="nm">0.5</span>)),
+        carla.Transform(carla.Location(x=<span class="nm">-6.0</span>, y=<span class="nm">-1.0</span>, z=<span class="nm">0.5</span>)),
+        carla.Transform(carla.Location(x=<span class="nm">-6.0</span>, y=<span class="nm">-2.5</span>, z=<span class="nm">0.5</span>)),
+    ]
+
+    <span class="cm"># Cross to the east sidewalk (+x direction)</span>
+    goal_location = carla.Location(x=<span class="nm">6.0</span>, y=<span class="nm">0.0</span>, z=<span class="nm">0.0</span>)
+
+    pedestrians   = []
+    controllers   = []
+
+    <span class="kw">for</span> i <span class="kw">in</span> range(num_peds):
+        <span class="kw">import</span> random
+        bp = random.choice(list(ped_bps))
+
+        <span class="kw">try</span>:
+            ped = world.spawn_actor(bp, start_positions[i])
+            pedestrians.append(ped)
+            <span class="kw">print</span>(<span class="st">f"[S4] Pedestrian {i+1} spawned at {start_positions[i].location}"</span>)
+        <span class="kw">except</span> RuntimeError <span class="kw">as</span> e:
+            <span class="kw">print</span>(<span class="st">f"[S4] Could not spawn pedestrian {i+1}: {e}"</span>)
+            <span class="kw">continue</span>
+
+    <span class="cm"># Must tick world BEFORE starting controllers</span>
+    world.tick()
+
+    <span class="kw">for</span> i, ped <span class="kw">in</span> enumerate(pedestrians):
+        ctrl = world.spawn_actor(controller_bp, carla.Transform(), attach_to=ped)
+        controllers.append(ctrl)
+
+    world.tick()   <span class="cm"># second tick to initialize controllers</span>
+
+    <span class="kw">for</span> i, ctrl <span class="kw">in</span> enumerate(controllers):
+        ctrl.start()
+        ctrl.go_to_location(goal_location)
+        ctrl.set_max_speed(<span class="nm">1.2</span> + i * <span class="nm">0.1</span>)   <span class="cm"># slightly different speeds</span>
+        <span class="kw">print</span>(<span class="st">f"[S4] Controller {i+1} walking toward ({goal_location.x}, {goal_location.y})"</span>)
+
+    <span class="kw">return</span> pedestrians, controllers
+
+
+<span class="kw">def</span> <span class="fn">check_pedestrian_clear</span>(world, crosswalk_x_range=(-<span class="nm">5.0</span>, <span class="nm">5.0</span>), crosswalk_y_range=(-<span class="nm">3.0</span>, <span class="nm">3.0</span>)):
+    <span class="kw">"""
+    Returns True if no pedestrian is currently in the crosswalk zone.
+    Planner should only proceed when this returns True.
+    """</span>
+    pedestrians = world.get_actors().filter(<span class="st">'walker.pedestrian.*'</span>)
+
+    <span class="kw">for</span> ped <span class="kw">in</span> pedestrians:
+        loc = ped.get_location()
+        in_crosswalk = (crosswalk_x_range[<span class="nm">0</span>] <= loc.x <= crosswalk_x_range[<span class="nm">1</span>] <span class="kw">and</span>
+                        crosswalk_y_range[<span class="nm">0</span>] <= loc.y <= crosswalk_y_range[<span class="nm">1</span>])
+        <span class="kw">if</span> in_crosswalk:
+            <span class="kw">return</span> <span class="kw">False</span>, ped.get_location()
+
+    <span class="kw">return</span> <span class="kw">True</span>, <span class="kw">None</span>
+
+
+<span class="kw">def</span> <span class="fn">compute_safety_robustness</span>(ego_location, pedestrian_locations, safety_radius=<span class="nm">2.0</span>):
+    <span class="kw">"""
+    Computes P0 safety robustness: distance to nearest pedestrian minus safety radius.
+    Negative value means P0 VIOLATED — planner failed.
+    """</span>
+    <span class="kw">if</span> <span class="kw">not</span> pedestrian_locations:
+        <span class="kw">return</span> <span class="nm">100.0</span>   <span class="cm"># No pedestrians — fully safe</span>
+
+    distances = [ego_location.distance(pl) <span class="kw">for</span> pl <span class="kw">in</span> pedestrian_locations]
+    min_dist = min(distances)
+
+    <span class="kw">return</span> min_dist - safety_radius   <span class="cm"># positive = safe, negative = violation</span></code></pre>
+            </div>
+        </div>
+
+        <!-- ─── TWTL PANEL ─────────────────────────────────────── -->
+        <div id="panel-twtl" class="panel">
+            <div class="page-title">TWTL <span>Formulas</span></div>
+            <div class="page-sub">Formal specifications for all four scenarios — connecting Ahmad's research to Nidhi's planner</div>
+
+            <div class="section-title">Operator Reference</div>
+
+            <table class="twtl-table">
+                <thead>
+                    <tr>
+                        <th>Operator</th>
+                        <th>Symbol</th>
+                        <th>Meaning</th>
+                        <th>Driving Example</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Hold</td>
+                        <td>H<sub>d</sub> π</td>
+                        <td>Maintain condition π for d steps</td>
+                        <td>H₅ stopped = hold speed &lt;0.5 m/s for 5 steps</td>
+                    </tr>
+                    <tr>
+                        <td>Within</td>
+                        <td>[ φ ]<sub>[a,b]</sub></td>
+                        <td>Satisfy φ starting between time a and b</td>
+                        <td>[ H₂ at_stop ]<sub>[0,10]</sub> = stop within 10s</td>
+                    </tr>
+                    <tr>
+                        <td>Concatenation</td>
+                        <td>φ₁ · φ₂</td>
+                        <td>Do φ₁ then immediately φ₂</td>
+                        <td>stop · proceed = stop, then go</td>
+                    </tr>
+                    <tr>
+                        <td>Conjunction</td>
+                        <td>φ₁ ∧ φ₂</td>
+                        <td>Both hold simultaneously</td>
+                        <td>safe ∧ legal = safe AND following rules</td>
+                    </tr>
+                    <tr>
+                        <td>Negation</td>
+                        <td>¬φ</td>
+                        <td>Condition must NOT hold</td>
+                        <td>¬collision = no collision ever</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="section-title">All Four Scenario Formulas</div>
+
+            <div class="formula-box" style="margin-bottom:16px">
+                <div class="formula-label">Scenario 1 — Green, Clear</div>
+                <div class="formula">φ₁ = [ H₂ π<sub>intersection</sub> ]<sub>[0,15]</sub>  ∧  H<sub>T</sub> ¬π<sub>collision</sub>  ∧  H<sub>T</sub> π<sub>green_ok</sub></div>
+                <div class="formula-desc">Planner passes through within 15s; never collides; only moves on green</div>
+            </div>
+
+            <div class="formula-box" style="margin-bottom:16px">
+                <div class="formula-label">Scenario 2 — Yellow Decision</div>
+                <div class="formula">φ₂ = (d &gt; d_stop → [ H₃ π<sub>stopped</sub> ]<sub>[0,5]</sub>) ∧ (d ≤ d_stop → [ H₁ π<sub>through</sub> ]<sub>[0,4]</sub>)  ∧  H<sub>T</sub> ¬π<sub>red_violation</sub></div>
+                <div class="formula-desc">Correct stop-or-go decision; never runs a red light</div>
+            </div>
+
+            <div class="formula-box" style="margin-bottom:16px">
+                <div class="formula-label">Scenario 3 — Red, Waiting Traffic</div>
+                <div class="formula">φ₃ = H<sub>T</sub> ¬π<sub>collision</sub>  ∧  H<sub>T</sub> ¬π<sub>red_entry</sub>  ∧  [ H₅ π<sub>stopped</sub> ]<sub>[0,30]</sub></div>
+                <div class="formula-desc">No collision; no red entry; comes to full stop within 30s and holds it</div>
+            </div>
+
+            <div class="formula-box">
+                <div class="formula-label">Scenario 4 — Blocked + Pedestrians</div>
+                <div class="formula">φ₄ = H<sub>T</sub> ¬π<sub>ped_collision</sub>  ∧  [H₃ π<sub>ped_clear</sub>]<sub>[0,∞]</sub> · [H₁ π<sub>through</sub>]<sub>[0,10]</sub>  ∧  H<sub>T</sub> ¬π<sub>collision</sub></div>
+                <div class="formula-desc">Never hit a pedestrian (P0); wait for clear crosswalk, then proceed within 10s; P0 overrides green light</div>
+            </div>
+
+            <div class="section-title">Predicate Definitions</div>
+
+            <table class="twtl-table">
+                <thead>
+                    <tr>
+                        <th>Predicate</th>
+                        <th>Formal Definition</th>
+                        <th>Code Signal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>π<sub>collision</sub></td>
+                        <td>{ d<sub>min</sub> | d<sub>min</sub> &lt; 0.5m }</td>
+                        <td>min LiDAR distance to obstacles</td>
+                    </tr>
+                    <tr>
+                        <td>π<sub>ped_collision</sub></td>
+                        <td>{ d<sub>ped</sub> | d<sub>ped</sub> &lt; 2.0m }</td>
+                        <td>distance to nearest walker</td>
+                    </tr>
+                    <tr>
+                        <td>π<sub>stopped</sub></td>
+                        <td>{ v | v &lt; 0.5 m/s }</td>
+                        <td>ego velocity magnitude</td>
+                    </tr>
+                    <tr>
+                        <td>π<sub>green_ok</sub></td>
+                        <td>{ state | light == GREEN }</td>
+                        <td>CARLA TrafficLightState enum</td>
+                    </tr>
+                    <tr>
+                        <td>π<sub>red_entry</sub></td>
+                        <td>{ (loc, state) | in_intersection ∧ light == RED }</td>
+                        <td>intersection zone + light state</td>
+                    </tr>
+                    <tr>
+                        <td>π<sub>ped_clear</sub></td>
+                        <td>{ loc<sub>ped</sub> | loc<sub>ped</sub> ∉ crosswalk }</td>
+                        <td>no walkers in bounding box</td>
+                    </tr>
+                    <tr>
+                        <td>π<sub>intersection</sub></td>
+                        <td>{ loc | loc ∈ junction_bbox }</td>
+                        <td>waypoint.is_junction == True</td>
+                    </tr>
+                    <tr>
+                        <td>π<sub>through</sub></td>
+                        <td>{ loc | loc on far side of intersection }</td>
+                        <td>y &gt; +5m past center</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="section-title">Robustness at a Glance</div>
+            <div class="info-block">
+                <h4>When to use ρ vs η</h4>
+                <ul>
+                    <li><strong>Use ρ (traditional)</strong> for Scenarios 1, 3, 4 — hard safety/legal constraints where worst-case matters</li>
+                    <li><strong>Use η (AGM)</strong> for Scenario 2 — smooth stop-or-go tradeoff benefits from a differentiable, optimistic measure</li>
+                    <li>In both cases: positive value = specification satisfied; negative = violated</li>
+                </ul>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<script>
+    function show(id) {
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById('panel-' + id).classList.add('active');
+
+        const map = {
+            overview: 0,
+            s1: 1,
+            s2: 2,
+            s3: 3,
+            s4: 4,
+            twtl: 5
+        };
+        document.querySelectorAll('.nav-item')[map[id]].classList.add('active');
+    }
+</script>
+</body>
+</html>
