@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CARLA — Windows Memory Flush Guide</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;700;800&display=swap');
+
+        :root {
+            --bg:       #07090d;
+            --surface:  #0d1117;
+            --panel:    #131b27;
+            --border:   #1c2a3e;
+            --amber:    #f5a623;
+            --amber-d:  #7a4f0a;
+            --green:    #3ddc84;
+            --green-d:  #0f4a28;
+            --red:      #ff6b6b;
+            --red-d:    #4a1010;
+            --blue:     #4aa8ff;
+            --muted:    #3a5070;
+            --text:     #c0d0e8;
+            --text-dim: #5a7090;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Syne', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+        }
+
+        /* ── HEADER ─────────────────────────────────────── */
+        header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 28px 48px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .chip {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.62em;
+            letter-spacing: 0.18em;
+            padding: 4px 10px;
+            border-radius: 2px;
+            border: 1px solid;
+            white-space: nowrap;
+        }
+
+        .chip-red    { color: var(--red);   border-color: rgba(255,107,107,0.35); background: rgba(255,107,107,0.06); }
+        .chip-amber  { color: var(--amber); border-color: var(--amber-d);         background: rgba(245,166,35,0.06); }
+        .chip-green  { color: var(--green); border-color: rgba(61,220,132,0.35);  background: rgba(61,220,132,0.06); }
+
+        header h1 {
+            font-size: 1.15em;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+
+        header h1 span { color: var(--amber); }
+
+        /* ── LAYOUT ─────────────────────────────────────── */
+        .page {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 52px 48px;
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+        }
+
+        /* ── INTRO ──────────────────────────────────────── */
+        .intro-eyebrow {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.62em;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 10px;
+        }
+
+        .intro-title {
+            font-size: 2em;
+            font-weight: 800;
+            line-height: 1.15;
+            margin-bottom: 14px;
+        }
+
+        .intro-title span { color: var(--amber); }
+
+        .intro-desc {
+            font-size: 0.95em;
+            color: var(--text-dim);
+            max-width: 620px;
+        }
+
+        /* ── ROOT CAUSE BOX ─────────────────────────────── */
+        .root-cause {
+            background: rgba(255,107,107,0.06);
+            border: 1px solid rgba(255,107,107,0.2);
+            border-left: 3px solid var(--red);
+            border-radius: 5px;
+            padding: 18px 22px;
+        }
+
+        .root-cause h3 {
+            font-size: 0.9em;
+            font-weight: 700;
+            color: var(--red);
+            margin-bottom: 7px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .root-cause p {
+            font-size: 0.88em;
+            color: var(--text-dim);
+            line-height: 1.65;
+        }
+
+        /* ── SECTIONS ───────────────────────────────────── */
+        .section { display: flex; flex-direction: column; gap: 14px; }
+
+        .section-head {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .step-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65em;
+            font-weight: 700;
+            color: var(--bg);
+            background: var(--amber);
+            width: 22px; height: 22px;
+            border-radius: 3px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .step-badge.green  { background: var(--green); }
+        .step-badge.red    { background: var(--red); }
+        .step-badge.blue   { background: var(--blue); }
+
+        .section-head h2 {
+            font-size: 1.05em;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .section-desc {
+            font-size: 0.87em;
+            color: var(--text-dim);
+            padding-left: 34px;
+            line-height: 1.65;
+        }
+
+        /* ── CODE BLOCKS ────────────────────────────────── */
+        .code-wrap { margin-top: 4px; }
+
+        .code-top {
+            background: #0a0e16;
+            border: 1px solid var(--border);
+            border-bottom: none;
+            border-radius: 5px 5px 0 0;
+            padding: 8px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .code-fname {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72em;
+            color: var(--text-dim);
+        }
+
+        .code-type {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.62em;
+            letter-spacing: 0.12em;
+            color: var(--muted);
+        }
+
+        .copy-btn {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.62em;
+            letter-spacing: 0.1em;
+            color: var(--amber);
+            background: rgba(245,166,35,0.08);
+            border: 1px solid var(--amber-d);
+            padding: 3px 10px;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .copy-btn:hover { background: rgba(245,166,35,0.16); }
+        .copy-btn.copied { color: var(--green); border-color: var(--green-d); background: rgba(61,220,132,0.08); }
+
+        pre {
+            background: #0a0e16;
+            border: 1px solid var(--border);
+            border-radius: 0 0 5px 5px;
+            padding: 20px;
+            overflow-x: auto;
+        }
+
+        code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9em;
+            line-height: 1.85;
+        }
+
+        .kw  { color: #5b9cf6; font-weight: 600; }
+        .cm  { color: #2e4e2e; font-style: italic; }
+        .st  { color: #d4976c; }
+        .fn  { color: #ffd580; }
+        .nm  { color: #9dcc90; }
+        .hi  { color: var(--amber); font-weight: 600; }
+        .ok  { color: var(--green); }
+        .er  { color: var(--red); }
+
+        /* ── CALLOUT ────────────────────────────────────── */
+        .callout {
+            padding: 14px 18px;
+            border-radius: 4px;
+            font-size: 0.86em;
+            color: var(--text-dim);
+            line-height: 1.65;
+            margin-top: 4px;
+        }
+
+        .callout strong { color: var(--text); }
+        .callout.warn   { background: rgba(245,166,35,0.07); border-left: 3px solid var(--amber); }
+        .callout.info   { background: rgba(74,168,255,0.07); border-left: 3px solid var(--blue); }
+        .callout.good   { background: rgba(61,220,132,0.07); border-left: 3px solid var(--green); }
+
+        /* ── DIVIDER ────────────────────────────────────── */
+        .divider {
+            height: 1px;
+            background: var(--border);
+        }
+
+        /* ── SUMMARY TABLE ──────────────────────────────── */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.86em;
+        }
+
+        th {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65em;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--muted);
+            text-align: left;
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
+            background: var(--panel);
+        }
+
+        td {
+            padding: 10px 14px;
+            border-bottom: 1px solid rgba(28,42,62,0.6);
+            color: var(--text-dim);
+            vertical-align: top;
+        }
+
+        td:first-child {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--amber);
+            font-size: 0.88em;
+        }
+
+        tr:hover td { background: rgba(255,255,255,0.015); }
+
+        /* ── SCROLLBAR ──────────────────────────────────── */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: var(--surface); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+    <span class="chip chip-red">WINDOWS</span>
+    <span class="chip chip-amber">CARLA</span>
+    <h1>Memory Flush — <span>No Restart Needed</span></h1>
+</header>
+
+<div class="page">
+
+    <!-- INTRO -->
+    <div>
+        <div class="intro-eyebrow">Debug Guide</div>
+        <div class="intro-title">Flush CARLA Memory<br><span>Between Sessions</span></div>
+        <div class="intro-desc">
+            CARLA on Windows leaves zombie <code style="font-family:'JetBrains Mono',monospace;color:var(--amber);font-size:0.9em">CarlaUE4.exe</code> processes
+            after two runs that hold GPU memory and port 2000.
+            No restart required — just kill them correctly.
+        </div>
+    </div>
+
+    <!-- ROOT CAUSE -->
+    <div class="root-cause">
+        <h3>⚠ Root Cause</h3>
+        <p>
+            When a Python script ends (or crashes) without destroying actors and properly
+            disconnecting, the <strong style="color:var(--text)">Unreal Engine 4 server process</strong>
+            keeps running in the background. It holds onto VRAM and binds port 2000, so the
+            next CARLA launch silently fails or behaves incorrectly. The <code style="font-family:'JetBrains Mono',monospace;color:var(--red)">/T</code> flag
+            when killing processes is critical — it kills all child threads, not just the parent.
+        </p>
+    </div>
+
+    <!-- STEP 1 -->
+    <div class="section">
+        <div class="section-head">
+            <div class="step-badge red">1</div>
+            <h2>Kill CARLA Processes</h2>
+        </div>
+        <div class="section-desc">
+            Run these two commands in any Command Prompt or PowerShell window.
+            The <code>/T</code> flag kills child threads. The <code>2&gt;nul</code> suppresses errors
+            if CARLA isn't running.
+        </div>
+        <div class="code-wrap">
+            <div class="code-top">
+                <span class="code-fname">Command Prompt / PowerShell</span>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <span class="code-type">BATCH</span>
+                    <button class="copy-btn" onclick="copy(this, 'kill-cmd')">COPY</button>
+                </div>
+            </div>
+<pre id="kill-cmd"><code><span class="hi">taskkill /F /IM CarlaUE4.exe /T</span>
+<span class="hi">taskkill /F /IM CarlaUE4-Win64-Shipping.exe /T</span></code></pre>
+        </div>
+        <div class="callout warn">
+            <strong>Wait 3–5 seconds</strong> after running these before launching CARLA again.
+            The GPU needs a moment to finish releasing VRAM.
+        </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- STEP 2 -->
+    <div class="section">
+        <div class="section-head">
+            <div class="step-badge">2</div>
+            <h2>Release Port 2000 (if still bound)</h2>
+        </div>
+        <div class="section-desc">
+            If CARLA still can't start, something is still holding port 2000.
+            Find the PID and kill it.
+        </div>
+        <div class="code-wrap">
+            <div class="code-top">
+                <span class="code-fname">Find and kill whatever is holding port 2000</span>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <span class="code-type">BATCH</span>
+                    <button class="copy-btn" onclick="copy(this, 'port-cmd')">COPY</button>
+                </div>
+            </div>
+<pre id="port-cmd"><code><span class="cm"># Step 1: find the PID holding port 2000</span>
+netstat -ano | findstr :2000
+
+<span class="cm"># Step 2: kill it (replace 1234 with the PID from above)</span>
+taskkill /PID <span class="nm">1234</span> /F</code></pre>
+        </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- STEP 3 -->
+    <div class="section">
+        <div class="section-head">
+            <div class="step-badge blue">3</div>
+            <h2>Check GPU Memory (NVIDIA)</h2>
+        </div>
+        <div class="section-desc">
+            Verify VRAM has been freed after killing the process.
+            Look for <strong>Used MiB</strong> in the output — it should drop significantly.
+        </div>
+        <div class="code-wrap">
+            <div class="code-top">
+                <span class="code-fname">Check GPU memory usage</span>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <span class="code-type">BATCH</span>
+                    <button class="copy-btn" onclick="copy(this, 'gpu-cmd')">COPY</button>
+                </div>
+            </div>
+<pre id="gpu-cmd"><code>nvidia-smi
+
+<span class="cm"># If VRAM is still full after killing the process, force a reset:</span>
+nvidia-smi --gpu-reset</code></pre>
+        </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- STEP 4: Batch script -->
+    <div class="section">
+        <div class="section-head">
+            <div class="step-badge green">4</div>
+            <h2>One-Click Cleanup Script</h2>
+        </div>
+        <div class="section-desc">
+            Save this as <code style="font-family:'JetBrains Mono',monospace;color:var(--amber)">carla_cleanup.bat</code> on your desktop.
+            Double-click it between CARLA sessions — it handles everything automatically.
+        </div>
+        <div class="code-wrap">
+            <div class="code-top">
+                <span class="code-fname">carla_cleanup.bat</span>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <span class="code-type">BATCH</span>
+                    <button class="copy-btn" onclick="copy(this, 'bat-script')">COPY</button>
+                </div>
+            </div>
+<pre id="bat-script"><code><span class="kw">@echo off</span>
+<span class="kw">echo</span> <span class="ok">Killing CARLA processes...</span>
+taskkill /F /IM CarlaUE4.exe /T                           <span class="nm">2>nul</span>
+taskkill /F /IM CarlaUE4-Win64-Shipping.exe /T            <span class="nm">2>nul</span>
+taskkill /F /IM python.exe /T                             <span class="nm">2>nul</span>
+
+<span class="kw">echo</span> <span class="ok">Releasing port 2000 and 2001...</span>
+<span class="kw">for</span> /f <span class="st">"tokens=5"</span> %%a <span class="kw">in</span> (<span class="st">'netstat -ano ^| findstr :2000'</span>) <span class="kw">do</span> taskkill /PID %%a /F <span class="nm">2>nul</span>
+<span class="kw">for</span> /f <span class="st">"tokens=5"</span> %%a <span class="kw">in</span> (<span class="st">'netstat -ano ^| findstr :2001'</span>) <span class="kw">do</span> taskkill /PID %%a /F <span class="nm">2>nul</span>
+
+<span class="kw">echo</span> <span class="ok">Flushing DNS...</span>
+ipconfig /flushdns
+
+<span class="kw">echo</span>
+<span class="kw">echo</span> <span class="ok">Done. Waiting 5 seconds before you relaunch CARLA...</span>
+timeout /t <span class="nm">5</span></code></pre>
+        </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- STEP 5: Python fix -->
+    <div class="section">
+        <div class="section-head">
+            <div class="step-badge">5</div>
+            <h2>Permanent Fix — Python Cleanup</h2>
+        </div>
+        <div class="section-desc">
+            The real fix is preventing zombie processes in the first place.
+            Add this to the top of every scenario script so it kills any leftover
+            CARLA process before connecting.
+        </div>
+        <div class="code-wrap">
+            <div class="code-top">
+                <span class="code-fname">Add to top of any scenario script</span>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <span class="code-type">PYTHON</span>
+                    <button class="copy-btn" onclick="copy(this, 'py-kill')">COPY</button>
+                </div>
+            </div>
+<pre id="py-kill"><code><span class="kw">import</span> subprocess, time, sys
+
+<span class="kw">def</span> <span class="fn">flush_carla</span>():
+    <span class="st">"""Kill any leftover CARLA process before connecting."""</span>
+    <span class="kw">if</span> sys.platform != <span class="st">'win32'</span>:
+        <span class="kw">return</span>
+
+    procs = [<span class="st">'CarlaUE4.exe'</span>, <span class="st">'CarlaUE4-Win64-Shipping.exe'</span>]
+    <span class="kw">for</span> proc <span class="kw">in</span> procs:
+        subprocess.<span class="fn">call</span>(
+            [<span class="st">'taskkill'</span>, <span class="st">'/F'</span>, <span class="st">'/IM'</span>, proc, <span class="st">'/T'</span>],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+
+    time.<span class="fn">sleep</span>(<span class="nm">3</span>)   <span class="cm"># wait for GPU to release VRAM</span>
+    <span class="kw">print</span>(<span class="st">"[init] CARLA flushed — safe to connect."</span>)
+
+
+<span class="cm"># Call this at the top of run() before client = carla.Client(...)</span>
+<span class="fn">flush_carla</span>()</code></pre>
+        </div>
+
+        <div class="callout info">
+            <strong>Why it crashes after exactly two runs:</strong> the first run leaves a zombie process.
+            The second run spawns on top of it (barely works). By run three, there are two zombies
+            fighting over port 2000 and the remaining VRAM.
+        </div>
+
+        <div class="section-desc" style="padding-left:0;margin-top:8px">
+            Also make sure every scenario script has a <code style="font-family:'JetBrains Mono',monospace;color:var(--amber)">finally</code> block
+            — this is already in the scenario scripts from this session:
+        </div>
+        <div class="code-wrap">
+            <div class="code-top">
+                <span class="code-fname">Every scenario run() function</span>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <span class="code-type">PYTHON</span>
+                    <button class="copy-btn" onclick="copy(this, 'py-finally')">COPY</button>
+                </div>
+            </div>
+<pre id="py-finally"><code><span class="kw">try</span>:
+    <span class="cm"># ... scenario code ...</span>
+
+<span class="kw">finally</span>:
+    <span class="cm"># Always runs — even if an exception crashes the script</span>
+    <span class="kw">for</span> actor <span class="kw">in</span> actors.<span class="fn">values</span>():
+        <span class="kw">if</span> actor <span class="kw">and</span> actor.<span class="fn">is_alive</span>:
+            actor.<span class="fn">destroy</span>()         <span class="cm"># frees server-side memory</span>
+
+    settings.synchronous_mode = <span class="kw">False</span>
+    world.<span class="fn">apply_settings</span>(settings) <span class="cm"># restore async mode</span>
+    <span class="kw">print</span>(<span class="st">"[cleanup] Done."</span>)</code></pre>
+        </div>
+        <div class="callout good">
+            <strong>With both in place</strong> — <code>flush_carla()</code> at the top and
+            <code>finally</code> at the bottom — CARLA should run indefinitely without needing
+            a restart or the batch script.
+        </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- SUMMARY TABLE -->
+    <div class="section">
+        <div class="section-head">
+            <div class="step-badge">∑</div>
+            <h2>Quick Reference</h2>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Situation</th>
+                    <th>Command / Fix</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>CARLA won't start</td>
+                    <td>Run <code style="font-family:'JetBrains Mono',monospace">carla_cleanup.bat</code> then wait 5s</td>
+                </tr>
+                <tr>
+                    <td>Port 2000 in use</td>
+                    <td><code style="font-family:'JetBrains Mono',monospace">netstat -ano | findstr :2000</code> → <code style="font-family:'JetBrains Mono',monospace">taskkill /PID &lt;pid&gt; /F</code></td>
+                </tr>
+                <tr>
+                    <td>VRAM still full</td>
+                    <td><code style="font-family:'JetBrains Mono',monospace">nvidia-smi --gpu-reset</code></td>
+                </tr>
+                <tr>
+                    <td>Script crashed, no cleanup</td>
+                    <td>Run <code style="font-family:'JetBrains Mono',monospace">taskkill /F /IM CarlaUE4.exe /T</code></td>
+                </tr>
+                <tr>
+                    <td>Prevent it happening</td>
+                    <td>Add <code style="font-family:'JetBrains Mono',monospace">flush_carla()</code> + <code style="font-family:'JetBrains Mono',monospace">finally</code> block to every script</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+</div><!-- /page -->
+
+<script>
+    function copy(btn, id) {
+        const text = document.getElementById(id).innerText;
+        navigator.clipboard.writeText(text).then(() => {
+            btn.textContent = 'COPIED';
+            btn.classList.add('copied');
+            setTimeout(() => {
+                btn.textContent = 'COPY';
+                btn.classList.remove('copied');
+            }, 2000);
+        });
+    }
+</script>
+</body>
+</html>
