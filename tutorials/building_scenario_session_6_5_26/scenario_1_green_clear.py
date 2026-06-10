@@ -17,7 +17,7 @@ import os
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
 
-TOWN           = 'Town05'
+TOWN           = 'Town04'
 HOST           = 'localhost'
 PORT           = 2000
 TIMEOUT        = 20.0

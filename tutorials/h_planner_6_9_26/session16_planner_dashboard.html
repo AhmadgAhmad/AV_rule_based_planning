@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hierarchical Planner — Architecture</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;700;800&display=swap');
+
+        :root {
+            --bg:        #060a10;
+            --surface:   #0d1420;
+            --panel:     #141e2e;
+            --border:    #1e2d45;
+            --amber:     #f5a623;
+            --amber-dim: #8a5c10;
+            --green:     #39d98a;
+            --yellow:    #f0d060;
+            --red:       #ff6b6b;
+            --blue:      #4aa8ff;
+            --purple:    #b07aff;
+            --cyan:      #3ee8d4;
+            --muted:     #4a5e7a;
+            --text:      #c5d4e8;
+            --text-dim:  #6a80a0;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Syne', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* ─── HEADER ─────────────────────────────────────────────── */
+        header {
+            padding: 28px 48px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .tag {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65em;
+            letter-spacing: 0.18em;
+            color: var(--amber);
+            background: rgba(245,166,35,0.08);
+            border: 1px solid var(--amber-dim);
+            padding: 4px 10px;
+            border-radius: 2px;
+        }
+
+        .brand h1 {
+            font-size: 1.1em;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+        }
+
+        .brand h1 span { color: var(--amber); }
+
+        .nav-tabs {
+            display: flex;
+            gap: 4px;
+        }
+
+        .tab {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72em;
+            padding: 7px 14px;
+            border-radius: 3px;
+            cursor: pointer;
+            color: var(--text-dim);
+            border: 1px solid transparent;
+            transition: all 0.15s;
+            letter-spacing: 0.05em;
+        }
+
+        .tab:hover {
+            color: var(--text);
+            background: rgba(255,255,255,0.04);
+        }
+
+        .tab.active {
+            color: var(--amber);
+            background: rgba(245,166,35,0.08);
+            border-color: var(--amber-dim);
+        }
+
+        /* ─── MAIN ────────────────────────────────────────────────── */
+        .main {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 44px 48px;
+        }
+
+        .panel { display: none; }
+        .panel.active {
+            display: block;
+            animation: rise 0.2s ease;
+        }
+
+        @keyframes rise {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ─── TYPOGRAPHY ──────────────────────────────────────────── */
+        .section-eyebrow {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65em;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 10px;
+        }
+
+        .section-title {
+            font-size: 2em;
+            font-weight: 800;
+            color: var(--text);
+            line-height: 1.1;
+            margin-bottom: 12px;
+        }
+
+        .section-title span { color: var(--amber); }
+
+        .section-desc {
+            font-size: 0.95em;
+            color: var(--text-dim);
+            max-width: 680px;
+            line-height: 1.7;
+            margin-bottom: 40px;
+        }
+
+        /* ─── PIPELINE DIAGRAM ────────────────────────────────────── */
+        .pipeline {
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            margin: 40px 0;
+            overflow-x: auto;
+            padding-bottom: 8px;
+        }
+
+        .pipe-node {
+            flex: 1;
+            min-width: 160px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            padding: 20px 18px;
+            position: relative;
+        }
+
+        .pipe-node:first-child { border-radius: 6px 0 0 6px; }
+        .pipe-node:last-child  { border-radius: 0 6px 6px 0; }
+
+        .pipe-node + .pipe-node { border-left: none; }
+
+        .pipe-node.p0 { border-top: 3px solid var(--green); }
+        .pipe-node.p1 { border-top: 3px solid var(--yellow); }
+        .pipe-node.p2 { border-top: 3px solid var(--purple); }
+        .pipe-node.gen { border-top: 3px solid var(--cyan); }
+        .pipe-node.exec { border-top: 3px solid var(--amber); }
+
+        .pipe-node-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.62em;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .pipe-node.p0   .pipe-node-label { color: var(--green); }
+        .pipe-node.p1   .pipe-node-label { color: var(--yellow); }
+        .pipe-node.p2   .pipe-node-label { color: var(--purple); }
+        .pipe-node.gen  .pipe-node-label { color: var(--cyan); }
+        .pipe-node.exec .pipe-node-label { color: var(--amber); }
+
+        .pipe-node-name {
+            font-size: 0.9em;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 10px;
+        }
+
+        .pipe-node-detail {
+            font-size: 0.78em;
+            color: var(--text-dim);
+            line-height: 1.5;
+        }
+
+        .pipe-arrow {
+            display: flex;
+            align-items: center;
+            padding: 0 4px;
+            color: var(--muted);
+            font-size: 1.4em;
+            flex-shrink: 0;
+        }
+
+        /* ─── FILTER FUNNEL DIAGRAM ───────────────────────────────── */
+        .funnel {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            max-width: 600px;
+            margin: 32px 0;
+        }
+
+        .funnel-stage {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            padding: 14px 20px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-bottom: none;
+            position: relative;
+        }
+
+        .funnel-stage:last-child { border-bottom: 1px solid var(--border); border-radius: 0 0 5px 5px; }
+        .funnel-stage:first-child { border-radius: 5px 5px 0 0; }
+
+        .funnel-stage.stage-gen   { border-left: 3px solid var(--cyan); }
+        .funnel-stage.stage-p0    { border-left: 3px solid var(--green); }
+        .funnel-stage.stage-p1    { border-left: 3px solid var(--yellow); }
+        .funnel-stage.stage-p2    { border-left: 3px solid var(--purple); }
+        .funnel-stage.stage-exec  { border-left: 3px solid var(--amber); }
+
+        .funnel-count {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.6em;
+            font-weight: 700;
+            min-width: 44px;
+        }
+
+        .stage-gen  .funnel-count { color: var(--cyan); }
+        .stage-p0   .funnel-count { color: var(--green); }
+        .stage-p1   .funnel-count { color: var(--yellow); }
+        .stage-p2   .funnel-count { color: var(--purple); }
+        .stage-exec .funnel-count { color: var(--amber); }
+
+        .funnel-info h4 {
+            font-size: 0.9em;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 3px;
+        }
+
+        .funnel-info p {
+            font-size: 0.8em;
+            color: var(--text-dim);
+        }
+
+        .funnel-bar {
+            flex: 1;
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .funnel-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s;
+        }
+
+        .stage-gen  .funnel-bar-fill { background: var(--cyan);   width: 100%; }
+        .stage-p0   .funnel-bar-fill { background: var(--green);  width: 60%; }
+        .stage-p1   .funnel-bar-fill { background: var(--yellow); width: 36%; }
+        .stage-p2   .funnel-bar-fill { background: var(--purple); width: 4%; }
+
+        /* ─── GRID ────────────────────────────────────────────────── */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 24px 0;
+        }
+
+        .three-col {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin: 24px 0;
+        }
+
+        /* ─── CARDS ───────────────────────────────────────────────── */
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            padding: 20px;
+        }
+
+        .card-eyebrow {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.62em;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+
+        .card-title {
+            font-size: 1em;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 10px;
+        }
+
+        .card-body {
+            font-size: 0.85em;
+            color: var(--text-dim);
+            line-height: 1.6;
+        }
+
+        .card-body ul { list-style: none; }
+        .card-body li { padding: 4px 0; padding-left: 14px; position: relative; }
+        .card-body li::before { content: '›'; position: absolute; left: 0; color: var(--amber); }
+
+        /* ─── CODE BLOCKS ─────────────────────────────────────────── */
+        .code-wrap { margin: 20px 0; }
+
+        .code-header {
+            background: #0a0f18;
+            border: 1px solid var(--border);
+            border-bottom: none;
+            border-radius: 5px 5px 0 0;
+            padding: 8px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .code-fname {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72em;
+            color: var(--text-dim);
+        }
+
+        .code-lang {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.62em;
+            color: var(--muted);
+            letter-spacing: 0.1em;
+        }
+
+        pre {
+            background: #0a0f18;
+            border: 1px solid var(--border);
+            border-radius: 0 0 5px 5px;
+            padding: 22px;
+            overflow-x: auto;
+        }
+
+        code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9em;
+            line-height: 1.85;
+        }
+
+        .kw  { color: #5b9cf6; font-weight: 600; }
+        .fn  { color: #ffd580; }
+        .st  { color: #d4976c; }
+        .cm  { color: #3d5a3d; font-style: italic; }
+        .nm  { color: #9dcc90; }
+        .cls { color: #4dd6ae; font-weight: 600; }
+        .hi  { color: var(--amber); font-weight: 600; }
+
+        /* ─── FORMULA BOXES ───────────────────────────────────────── */
+        .formula-block {
+            background: #0a0f18;
+            border: 1px solid var(--amber-dim);
+            border-radius: 5px;
+            padding: 18px 22px;
+            margin: 16px 0;
+        }
+
+        .formula-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.62em;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--amber);
+            margin-bottom: 10px;
+        }
+
+        .formula-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.05em;
+            color: #e0c070;
+            line-height: 1.7;
+        }
+
+        .formula-note {
+            margin-top: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.78em;
+            color: var(--text-dim);
+            line-height: 1.6;
+        }
+
+        /* ─── CONTEXT GRID ────────────────────────────────────────── */
+        .context-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin: 20px 0;
+        }
+
+        .ctx-card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            padding: 16px;
+        }
+
+        .ctx-card.intersection { border-top: 3px solid var(--yellow); }
+        .ctx-card.highway      { border-top: 3px solid var(--blue); }
+        .ctx-card.city         { border-top: 3px solid var(--green); }
+        .ctx-card.parking      { border-top: 3px solid var(--purple); }
+
+        .ctx-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7em;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .intersection .ctx-name { color: var(--yellow); }
+        .highway      .ctx-name { color: var(--blue); }
+        .city         .ctx-name { color: var(--green); }
+        .parking      .ctx-name { color: var(--purple); }
+
+        .ctx-weights {
+            font-size: 0.82em;
+            color: var(--text-dim);
+            line-height: 1.6;
+        }
+
+        .ctx-weights strong { color: var(--text); }
+
+        /* ─── WEIGHT BARS ─────────────────────────────────────────── */
+        .weight-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 4px 0;
+            font-size: 0.78em;
+        }
+
+        .weight-label { color: var(--text-dim); min-width: 85px; }
+        .weight-bar-wrap { flex: 1; background: var(--border); height: 5px; border-radius: 3px; overflow: hidden; }
+        .weight-bar { height: 100%; border-radius: 3px; }
+        .weight-val { color: var(--text-dim); min-width: 32px; text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; }
+
+        .bar-comfort    { background: var(--cyan); }
+        .bar-efficiency { background: var(--blue); }
+        .bar-safety     { background: var(--green); }
+
+        /* ─── DIVIDER ─────────────────────────────────────────────── */
+        .divider {
+            height: 1px;
+            background: var(--border);
+            margin: 36px 0;
+        }
+
+        /* ─── INFO BOXES ──────────────────────────────────────────── */
+        .callout {
+            padding: 16px 20px;
+            border-radius: 4px;
+            margin: 16px 0;
+            font-size: 0.88em;
+            line-height: 1.6;
+        }
+
+        .callout.info     { background: rgba(74,168,255,0.07); border-left: 3px solid var(--blue); }
+        .callout.success  { background: rgba(57,217,138,0.07); border-left: 3px solid var(--green); }
+        .callout.warning  { background: rgba(240,208,96,0.07); border-left: 3px solid var(--yellow); }
+
+        .callout strong { color: var(--text); }
+        .callout p { color: var(--text-dim); margin-top: 4px; }
+
+        /* ─── SCROLLBAR ───────────────────────────────────────────── */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: var(--surface); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        @media (max-width: 900px) {
+            .two-col, .three-col, .context-grid { grid-template-columns: 1fr; }
+            .pipeline { flex-direction: column; }
+            .pipe-arrow { transform: rotate(90deg); align-self: center; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="brand">
+        <span class="tag">PLANNER</span>
+        <h1>Hierarchical Planner — <span>Architecture</span></h1>
+    </div>
+    <div class="nav-tabs">
+        <div class="tab active"  onclick="show('overview')">Overview</div>
+        <div class="tab"         onclick="show('generator')">Generator</div>
+        <div class="tab"         onclick="show('context')">Context</div>
+        <div class="tab"         onclick="show('filter')">H-Planner</div>
+        <div class="tab"         onclick="show('executor')">Executor</div>
+        <div class="tab"         onclick="show('integration')">Integration</div>
+    </div>
+</header>
+
+<div class="main">
+
+<!-- ─── OVERVIEW ─────────────────────────────────────────────────────────── -->
+<div id="panel-overview" class="panel active">
+
+    <div class="section-eyebrow">Session 16 — Architecture Guide</div>
+    <div class="section-title">Sampling + <span>Hierarchical</span> Planner</div>
+    <div class="section-desc">
+        The planner generates N parameterized candidate trajectories, evaluates each against
+        TWTL robustness measures (ρ for hard constraints, η for soft preferences),
+        and filters them in three lexicographic stages before executing the best path.
+    </div>
+
+    <!-- Pipeline -->
+    <div class="pipeline">
+        <div class="pipe-node gen">
+            <div class="pipe-node-label">Step 1</div>
+            <div class="pipe-node-name">Trajectory Generator</div>
+            <div class="pipe-node-detail">Sample N paths via speed α &amp; lateral offset β parameters</div>
+        </div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-node gen">
+            <div class="pipe-node-label">Step 2</div>
+            <div class="pipe-node-name">Context Detector</div>
+            <div class="pipe-node-detail">Classify: Intersection / Highway / City / Parking</div>
+        </div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-node p0">
+            <div class="pipe-node-label">Stage 1 — P0</div>
+            <div class="pipe-node-name">Safety Filter</div>
+            <div class="pipe-node-detail">Remove trajectories with ρ_P0 &lt; 0 (collision risk)</div>
+        </div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-node p1">
+            <div class="pipe-node-label">Stage 2 — P1</div>
+            <div class="pipe-node-name">Legal Filter</div>
+            <div class="pipe-node-detail">Remove trajectories with ρ_P1 &lt; 0 (traffic violations)</div>
+        </div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-node p2">
+            <div class="pipe-node-label">Stage 3 — P2</div>
+            <div class="pipe-node-name">Soft Ranking</div>
+            <div class="pipe-node-detail">Rank by η_P2: context-weighted AGM robustness</div>
+        </div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-node exec">
+            <div class="pipe-node-label">Step 3</div>
+            <div class="pipe-node-name">Path Executor</div>
+            <div class="pipe-node-detail">Convert best trajectory → VehicleControl commands</div>
+        </div>
+    </div>
+
+    <!-- Filtering funnel -->
+    <div class="section-eyebrow" style="margin-top:36px">Typical Filtering Numbers</div>
+
+    <div class="funnel">
+        <div class="funnel-stage stage-gen">
+            <div class="funnel-count">30</div>
+            <div class="funnel-info">
+                <h4>Generated</h4>
+                <p>6 speed factors × 5 lateral offsets</p>
+            </div>
+            <div class="funnel-bar"><div class="funnel-bar-fill"></div></div>
+        </div>
+        <div class="funnel-stage stage-p0">
+            <div class="funnel-count">18</div>
+            <div class="funnel-info">
+                <h4>After P0 (Safety)</h4>
+                <p>Removed 12 paths with obstacle proximity &lt; 1.5m</p>
+            </div>
+            <div class="funnel-bar"><div class="funnel-bar-fill"></div></div>
+        </div>
+        <div class="funnel-stage stage-p1">
+            <div class="funnel-count">11</div>
+            <div class="funnel-info">
+                <h4>After P1 (Legal)</h4>
+                <p>Removed 7 paths: over speed limit or running red</p>
+            </div>
+            <div class="funnel-bar"><div class="funnel-bar-fill"></div></div>
+        </div>
+        <div class="funnel-stage stage-p2">
+            <div class="funnel-count">1</div>
+            <div class="funnel-info">
+                <h4>P2 Selection</h4>
+                <p>Pick trajectory with highest η (context-weighted AGM)</p>
+            </div>
+            <div class="funnel-bar"><div class="funnel-bar-fill"></div></div>
+        </div>
+        <div class="funnel-stage stage-exec">
+            <div class="funnel-count">✓</div>
+            <div class="funnel-info">
+                <h4>Execute</h4>
+                <p>PID-style VehicleControl sent to ego every tick</p>
+            </div>
+            <div class="funnel-bar"><div class="funnel-bar-fill" style="width:4%"></div></div>
+        </div>
+    </div>
+
+    <div class="callout info" style="margin-top:32px">
+        <strong>Key insight:</strong>
+        <p>P0 and P1 are evaluated with traditional ρ (min-based, worst-case).
+           P2 uses AGM robustness η — smooth and differentiable, rewards trajectories
+           where many time steps are strongly satisfying, not just the minimum.</p>
+    </div>
+</div>
+
+<!-- ─── GENERATOR ─────────────────────────────────────────────────────────── -->
+<div id="panel-generator" class="panel">
+
+    <div class="section-eyebrow">Component 1</div>
+    <div class="section-title">Sampling Trajectory <span>Generator</span></div>
+    <div class="section-desc">
+        Generates N candidate trajectories by varying two parameters:
+        speed factor α (fraction of speed limit) and lateral offset β (meters from lane center).
+        All paths follow CARLA's road network — no paths through buildings.
+    </div>
+
+    <div class="two-col">
+        <div class="card">
+            <div class="card-eyebrow">Speed Parameter α</div>
+            <div class="card-title">Speed Factors</div>
+            <div class="card-body">
+                <ul>
+                    <li><strong>α = 0.0</strong> — Full stop trajectory (emergency/red light)</li>
+                    <li><strong>α = 0.3</strong> — Very slow (parking, pedestrian zone)</li>
+                    <li><strong>α = 0.5</strong> — Half speed (cautious approach)</li>
+                    <li><strong>α = 0.7</strong> — Moderate speed</li>
+                    <li><strong>α = 0.9</strong> — Near speed limit</li>
+                    <li><strong>α = 1.0</strong> — At speed limit</li>
+                </ul>
+                <p style="margin-top:10px">target_speed = α × speed_limit_ms</p>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-eyebrow">Lateral Parameter β</div>
+            <div class="card-title">Lateral Offsets</div>
+            <div class="card-body">
+                <ul>
+                    <li><strong>β = −0.4m</strong> — Left of lane center</li>
+                    <li><strong>β = −0.2m</strong> — Slight left</li>
+                    <li><strong>β = 0.0m</strong> — Lane center (nominal)</li>
+                    <li><strong>β = +0.2m</strong> — Slight right</li>
+                    <li><strong>β = +0.4m</strong> — Right of lane center</li>
+                </ul>
+                <p style="margin-top:10px">6 × 5 = 30 candidate trajectories total</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="code-wrap">
+        <div class="code-header">
+            <span class="code-fname">planner.py — SamplingTrajectoryGenerator.generate()</span>
+            <span class="code-lang">PYTHON</span>
+        </div>
+<pre><code><span class="cm"># Called once per replan cycle.  ego = current vehicle actor.</span>
+<span class="kw">def</span> <span class="fn">generate</span>(<span class="kw">self</span>, ego, speed_limit_ms):
+    trajectories = []
+    start_wp = <span class="kw">self</span>.carla_map.<span class="fn">get_waypoint</span>(ego.<span class="fn">get_location</span>())
+
+    <span class="kw">for</span> alpha <span class="kw">in</span> <span class="kw">self</span>.SPEED_FACTORS:        <span class="cm"># [0.0, 0.3, 0.5, 0.7, 0.9, 1.0]</span>
+        <span class="kw">for</span> beta <span class="kw">in</span> <span class="kw">self</span>.LATERAL_OFFSETS:   <span class="cm"># [-0.4, -0.2, 0.0, 0.2, 0.4]</span>
+
+            <span class="cm"># Walk road waypoints, shift laterally by beta</span>
+            traj = <span class="kw">self</span>.<span class="fn">_build_trajectory</span>(start_wp, alpha, beta, speed_limit_ms)
+            <span class="kw">if</span> traj:
+                trajectories.<span class="fn">append</span>(traj)
+
+    <span class="cm"># Result: 30 Trajectory objects, each with .waypoints and .target_speeds</span>
+    <span class="kw">return</span> trajectories   <span class="cm"># ready for TWTLEvaluator</span>
+
+<span class="cm"># Lateral shift: perpendicular to lane direction</span>
+<span class="kw">def</span> <span class="fn">_apply_lateral_offset</span>(<span class="kw">self</span>, waypoint, offset):
+    yaw_rad = math.<span class="fn">radians</span>(waypoint.transform.rotation.yaw)
+    perp_x  = -math.<span class="fn">sin</span>(yaw_rad)   <span class="cm"># perpendicular direction</span>
+    perp_y  =  math.<span class="fn">cos</span>(yaw_rad)
+    loc     = waypoint.transform.location
+    <span class="kw">return</span> carla.<span class="cls">Location</span>(
+        x = loc.x + offset * perp_x,
+        y = loc.y + offset * perp_y,
+        z = loc.z
+    )</code></pre>
+    </div>
+
+    <div class="callout warning">
+        <strong>Why lateral offset?</strong>
+        <p>Small lateral variations let the planner naturally avoid obstacles that partially
+        block a lane, or bias toward the lane center when a truck is close. The P0 filter
+        removes trajectories where these offsets create unsafe proximity.</p>
+    </div>
+</div>
+
+<!-- ─── CONTEXT ────────────────────────────────────────────────────────────── -->
+<div id="panel-context" class="panel">
+
+    <div class="section-eyebrow">Component 2</div>
+    <div class="section-title">Context <span>Detector</span></div>
+    <div class="section-desc">
+        Detects the driving context from the current world state.
+        Context determines the soft-preference weights used in Stage 3 (P2).
+        Different contexts demand different tradeoffs between comfort, efficiency, and safety margin.
+    </div>
+
+    <div class="context-grid">
+        <div class="ctx-card intersection">
+            <div class="ctx-name">Intersection</div>
+            <div class="ctx-weights">
+                <strong>Trigger:</strong> is_junction OR junction within 25m
+            </div>
+            <div style="margin-top:14px">
+                <div class="weight-row">
+                    <span class="weight-label">Comfort</span>
+                    <div class="weight-bar-wrap"><div class="weight-bar bar-comfort" style="width:50%"></div></div>
+                    <span class="weight-val">0.5</span>
+                </div>
+                <div class="weight-row">
+                    <span class="weight-label">Safety margin</span>
+                    <div class="weight-bar-wrap"><div class="weight-bar bar-safety" style="width:30%"></div></div>
+                    <span class="weight-val">0.3</span>
+                </div>
+                <div class="weight-row">
+                    <span class="weight-label">Efficiency</span>
+                    <div class="weight-bar-wrap"><div class="weight-bar bar-efficiency" style="width:20%"></div></div>
+                    <span class="weight-val">0.2</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="ctx-card highway">
+            <div class="ctx-name">Highway</div>
+            <div class="ctx-weights">
+                <strong>Trigger:</strong> speed_limit &gt; 50 km/h
+            </div>
+            <div style="margin-top:14px">
+                <div class="weight-row">
+                    <span class="weight-label">Efficiency</span>
+                    <div class="weight-bar-wrap"><div class="weight-bar bar-efficiency" style="width:50%"></div></div>
+                    <span class="weight-val">0.5</span>
+                </div>
+                <div class="weight-row">
+                    <span class="weight-label">Safety margin</span>
+                    <div class="weight-bar-wrap"><div class="weight-bar bar-safety" style="width:30%"></div></div>
+                    <span class="weight-val">0.3</span>
+                </div>
+                <div class="weight-row">
+                    <span class="weight-label">Comfort</span>
+                    <div class="weight-bar-wrap"><div class="weight-bar bar-comfort" style="width:20%"></div></div>
+                    <span class="weight-val">0.2</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="ctx-card city">
+            <div class="ctx-name">City</div>
+            <div class="ctx-weights">
+                <strong>Trigger:</strong> default (20–50 km/h)
+            </div>
+            <div style="margin-top:14px">
+                <div class="weight-row">
+                    <span class="weight-label">Comfort</span>
+                    <div class="weight-bar-wrap"><div class="weight-bar bar-comfort" style="width:40%"></div></div>
+                    <span class="weight-val">0.4</span>
+                </div>
+                <div class="weight-row">
+                    <span class="weight-label">Safety margin</span>
+                    <div class="weight-bar-wrap"><div class="weight-bar bar-safety" style="width:30%"></div></div>
+                    <span class="weight-val">0.3</span>
+                </div>
+                <div class="weight-row">
+                    <span class="weight-label">Efficiency</span>
+                    <div class="weight-bar-wrap"><div class="weight-bar bar-efficiency" style="width:30%"></div></div>
+                    <span class="weight-val">0.3</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="ctx-card parking">
+            <div class="ctx-name">Parking</div>
+            <div class="ctx-weights">
+                <strong>Trigger:</strong> speed_limit &lt; 20 km/h
+            </div>
+            <div style="margin-top:14px">
+                <div class="weight-row">
+                    <span class="weight-label">Safety margin</span>
+                    <div class="weight-bar-wrap"><div class="weight-bar bar-safety" style="width:50%"></div></div>
+                    <span class="weight-val">0.5</span>
+                </div>
+                <div class="weight-row">
+                    <span class="weight-label">Comfort</span>
+                    <div class="weight-bar-wrap"><div class="weight-bar bar-comfort" style="width:40%"></div></div>
+                    <span class="weight-val">0.4</span>
+                </div>
+                <div class="weight-row">
+                    <span class="weight-label">Efficiency</span>
+                    <div class="weight-bar-wrap"><div class="weight-bar bar-efficiency" style="width:10%"></div></div>
+                    <span class="weight-val">0.1</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="code-wrap">
+        <div class="code-header">
+            <span class="code-fname">planner.py — ContextDetector.detect()</span>
+            <span class="code-lang">PYTHON</span>
+        </div>
+<pre><code><span class="kw">def</span> <span class="fn">detect</span>(<span class="kw">self</span>, ego, carla_map, world):
+    waypoint    = carla_map.<span class="fn">get_waypoint</span>(ego.<span class="fn">get_location</span>())
+    speed_limit = ego.<span class="fn">get_speed_limit</span>()   <span class="cm"># km/h from CARLA</span>
+
+    <span class="cm"># Priority order — most specific first</span>
+    <span class="kw">if</span> <span class="kw">self</span>.<span class="fn">_is_at_or_approaching_intersection</span>(waypoint):
+        <span class="kw">return</span> Context.INTERSECTION        <span class="cm"># check junction ahead (25m lookahead)</span>
+    <span class="kw">elif</span> speed_limit > <span class="nm">50.0</span>:
+        <span class="kw">return</span> Context.HIGHWAY
+    <span class="kw">elif</span> speed_limit < <span class="nm">20.0</span>:
+        <span class="kw">return</span> Context.PARKING
+    <span class="kw">else</span>:
+        <span class="kw">return</span> Context.CITY                 <span class="cm"># default</span>
+
+<span class="cm"># Look ahead along road for junction within JUNCTION_LOOKAHEAD=25m</span>
+<span class="kw">def</span> <span class="fn">_is_at_or_approaching_intersection</span>(<span class="kw">self</span>, waypoint):
+    <span class="kw">if</span> waypoint.is_junction:
+        <span class="kw">return</span> <span class="kw">True</span>
+    current = waypoint
+    remaining = <span class="kw">self</span>.JUNCTION_LOOKAHEAD   <span class="cm"># 25 metres</span>
+    <span class="kw">while</span> remaining > <span class="nm">0</span>:
+        nxt = current.<span class="fn">next</span>(<span class="nm">3.0</span>)
+        <span class="kw">if not</span> nxt: <span class="kw">break</span>
+        current = nxt[<span class="nm">0</span>]
+        remaining -= <span class="nm">3.0</span>
+        <span class="kw">if</span> current.is_junction: <span class="kw">return</span> <span class="kw">True</span>
+    <span class="kw">return</span> <span class="kw">False</span></code></pre>
+    </div>
+</div>
+
+<!-- ─── FILTER ────────────────────────────────────────────────────────────── -->
+<div id="panel-filter" class="panel">
+
+    <div class="section-eyebrow">Component 3</div>
+    <div class="section-title">Hierarchical <span>Planner</span></div>
+    <div class="section-desc">
+        Three lexicographically ordered stages. A trajectory only reaches Stage 2
+        if it passes Stage 1. The ordering guarantees safety is never sacrificed
+        for speed or comfort.
+    </div>
+
+    <div class="three-col">
+        <div class="card">
+            <div class="card-eyebrow" style="color:var(--green)">Stage 1 — P0 (Safety)</div>
+            <div class="card-title">Hard Safety Filter</div>
+            <div class="card-body">
+                <ul>
+                    <li>Evaluate ρ_P0 for every trajectory</li>
+                    <li>Keep only trajectories with ρ_P0 ≥ 0</li>
+                    <li>ρ_P0 = min(d_obstacle − 1.5m, d_pedestrian − 2.5m)</li>
+                    <li>If ALL fail → emergency brake</li>
+                </ul>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-eyebrow" style="color:var(--yellow)">Stage 2 — P1 (Legal)</div>
+            <div class="card-title">Legal Compliance Filter</div>
+            <div class="card-body">
+                <ul>
+                    <li>Evaluate ρ_P1 on P0-surviving trajectories</li>
+                    <li>Keep only trajectories with ρ_P1 ≥ 0</li>
+                    <li>ρ_P1 = min(speed_margin, light_compliance)</li>
+                    <li>If ALL fail → keep least-harmful P0 trajectory</li>
+                </ul>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-eyebrow" style="color:var(--purple)">Stage 3 — P2 (Soft)</div>
+            <div class="card-title">Context-Aware Selection</div>
+            <div class="card-body">
+                <ul>
+                    <li>Compute η_P2 for surviving trajectories</li>
+                    <li>η uses AGM robustness (smooth, rewards margin)</li>
+                    <li>Weights depend on detected context</li>
+                    <li>Select argmax η_P2</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- P0 Formula -->
+    <div class="formula-block">
+        <div class="formula-label">P0 — Safety Robustness (traditional ρ)</div>
+        <div class="formula-text">ρ_P0 = min<sub>t∈trajectory</sub> min(d_obstacle(t) − 1.5m,  d_pedestrian(t) − 2.5m)</div>
+        <div class="formula-note">// Worst-case minimum — if ANY point is unsafe, the whole trajectory is rejected<br>// ρ_P0 &lt; 0  →  trajectory filtered out (Stage 1)</div>
+    </div>
+
+    <!-- P1 Formula -->
+    <div class="formula-block">
+        <div class="formula-label">P1 — Legal Robustness (traditional ρ)</div>
+        <div class="formula-text">ρ_P1 = min(v_limit + 1.5 − v_max,  1 if no_red_entry else −1)</div>
+        <div class="formula-note">// Speed margin: how far under the limit<br>// Red-light: −1 if trajectory enters junction while light is RED<br>// ρ_P1 &lt; 0  →  trajectory filtered out (Stage 2)</div>
+    </div>
+
+    <!-- P2 Formula -->
+    <div class="formula-block">
+        <div class="formula-label">P2 — Soft AGM Robustness η (context-weighted)</div>
+        <div class="formula-text">η_P2 = w_comfort·comfort + w_efficiency·efficiency + w_safety·safety_margin</div>
+        <div class="formula-note">// comfort        = 1 − |β| / max_offset   (penalise large lateral deviation)<br>// efficiency     = avg_speed / speed_limit  (reward higher average speed)<br>// safety_margin  = clip(ρ_P0 / 10, −1, 1)  (normalised P0 headroom)<br>// Weights [w_comfort, w_efficiency, w_safety] depend on detected Context</div>
+    </div>
+
+    <div class="code-wrap">
+        <div class="code-header">
+            <span class="code-fname">planner.py — HierarchicalPlanner.plan()</span>
+            <span class="code-lang">PYTHON</span>
+        </div>
+<pre><code><span class="kw">def</span> <span class="fn">plan</span>(<span class="kw">self</span>, ego, world, light, speed_limit_ms):
+
+    <span class="cm"># 0. Detect context (drives Stage 3 weights)</span>
+    context    = <span class="kw">self</span>.detector.<span class="fn">detect</span>(ego, <span class="kw">self</span>.carla_map, world)
+
+    <span class="cm"># 1. Sample N=30 candidate trajectories</span>
+    candidates = <span class="kw">self</span>.generator.<span class="fn">generate</span>(ego, speed_limit_ms)
+
+    <span class="cm"># 2. Evaluate ρ_P0, ρ_P1, η_P2 for each</span>
+    candidates = <span class="kw">self</span>.evaluator.<span class="fn">evaluate_all</span>(
+        candidates, world, <span class="kw">self</span>.carla_map, light, speed_limit_ms, context
+    )
+
+    <span class="cm"># Stage 1: P0 filter (safety — hardest constraint)</span>
+    p0_safe = [t <span class="kw">for</span> t <span class="kw">in</span> candidates <span class="kw">if</span> t.rho_p0 >= <span class="nm">0</span>]
+    <span class="kw">if not</span> p0_safe:
+        <span class="kw">return</span> <span class="kw">self</span>.<span class="fn">_emergency_brake_trajectory</span>(ego)   <span class="cm"># ALL unsafe</span>
+
+    <span class="cm"># Stage 2: P1 filter (legal compliance)</span>
+    p1_legal = [t <span class="kw">for</span> t <span class="kw">in</span> p0_safe <span class="kw">if</span> t.rho_p1 >= <span class="nm">0</span>]
+    <span class="kw">if not</span> p1_legal:
+        p1_legal = [<span class="fn">max</span>(p0_safe, key=<span class="kw">lambda</span> t: t.rho_p1)]  <span class="cm"># least harmful</span>
+
+    <span class="cm"># Stage 3: P2 ranking (context-aware soft preferences)</span>
+    best = <span class="fn">max</span>(p1_legal, key=<span class="kw">lambda</span> t: t.eta_p2)
+
+    <span class="kw">return</span> best   <span class="cm"># → PathExecutor.set_trajectory(best)</span></code></pre>
+    </div>
+</div>
+
+<!-- ─── EXECUTOR ───────────────────────────────────────────────────────────── -->
+<div id="panel-executor" class="panel">
+
+    <div class="section-eyebrow">Component 4</div>
+    <div class="section-title">Path <span>Executor</span></div>
+    <div class="section-desc">
+        Converts the selected trajectory into CARLA VehicleControl commands every tick.
+        Uses a proportional lateral controller for steering and a proportional speed
+        controller for throttle/brake. Advances automatically to the next waypoint
+        when within reach radius.
+    </div>
+
+    <div class="two-col">
+        <div class="card">
+            <div class="card-eyebrow">Lateral Control</div>
+            <div class="card-title">Steering</div>
+            <div class="card-body">
+                <ul>
+                    <li>Compute heading to next waypoint: atan2(dy, dx)</li>
+                    <li>Compute yaw error vs current vehicle heading</li>
+                    <li>steer = clip(Kp_steer × yaw_error, ±0.7)</li>
+                    <li>Kp_steer = 0.6</li>
+                    <li>Advance waypoint when distance &lt; 3m</li>
+                </ul>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-eyebrow">Longitudinal Control</div>
+            <div class="card-title">Throttle / Brake</div>
+            <div class="card-body">
+                <ul>
+                    <li>speed_error = target_speed − current_speed</li>
+                    <li>If error ≥ 0: throttle = clip(Kp × error, 0, 0.8)</li>
+                    <li>If error &lt; 0: brake = clip(−Kp × 1.5 × error, 0, 1.0)</li>
+                    <li>Kp_throttle = 0.5</li>
+                    <li>α = 0.0 → target speed 0 → full brake</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="code-wrap">
+        <div class="code-header">
+            <span class="code-fname">planner.py — PathExecutor.step()</span>
+            <span class="code-lang">PYTHON</span>
+        </div>
+<pre><code><span class="cm"># Called every simulation tick. Returns a carla.VehicleControl.</span>
+<span class="kw">def</span> <span class="fn">step</span>(<span class="kw">self</span>, ego):
+    target_loc = <span class="kw">self</span>.current_traj.waypoints[<span class="kw">self</span>.current_wp_index]
+    target_spd = <span class="kw">self</span>.current_traj.target_speeds[<span class="kw">self</span>.current_wp_index]
+
+    ego_loc = ego.<span class="fn">get_location</span>()
+    ego_yaw = math.<span class="fn">radians</span>(ego.<span class="fn">get_transform</span>().rotation.yaw)
+    ego_spd = <span class="cm">/* velocity magnitude */</span>
+
+    <span class="cm"># Advance waypoint when close enough</span>
+    <span class="kw">if</span> ego_loc.<span class="fn">distance</span>(target_loc) < <span class="nm">3.0</span>:
+        <span class="kw">self</span>.current_wp_index += <span class="nm">1</span>
+
+    <span class="cm"># Lateral: steer toward next waypoint</span>
+    yaw_error = <span class="fn">atan2</span>(dy, dx) - ego_yaw          <span class="cm"># heading error</span>
+    steer     = <span class="fn">clip</span>(<span class="nm">0.6</span> * yaw_error, -<span class="nm">0.7</span>, <span class="nm">0.7</span>)
+
+    <span class="cm"># Longitudinal: proportional speed controller</span>
+    err = target_spd - ego_spd
+    <span class="kw">if</span> err >= <span class="nm">0</span>:
+        throttle, brake = <span class="fn">clip</span>(<span class="nm">0.5</span> * err, <span class="nm">0</span>, <span class="nm">0.8</span>), <span class="nm">0.0</span>
+    <span class="kw">else</span>:
+        throttle, brake = <span class="nm">0.0</span>, <span class="fn">clip</span>(-<span class="nm">0.75</span> * err, <span class="nm">0</span>, <span class="nm">1.0</span>)
+
+    <span class="kw">return</span> carla.<span class="cls">VehicleControl</span>(throttle=throttle, steer=steer, brake=brake)</code></pre>
+    </div>
+
+    <div class="callout info">
+        <strong>Replan frequency:</strong>
+        <p>The executor runs every tick (20 Hz). The planner reruns every REPLAN_INTERVAL=10 ticks (2 Hz).
+        This means the executor follows the current best trajectory smoothly between replans,
+        while the planner can react to changing conditions (new obstacles, light state change).</p>
+    </div>
+</div>
+
+<!-- ─── INTEGRATION ────────────────────────────────────────────────────────── -->
+<div id="panel-integration" class="panel">
+
+    <div class="section-eyebrow">Putting it Together</div>
+    <div class="section-title">Scenario <span>Integration</span></div>
+    <div class="section-desc">
+        The planning loop replaces <code>ego.set_autopilot(True)</code> in every scenario.
+        The only thing that changes across scenarios is the light state and which actors
+        are spawned — the planner handles everything else.
+    </div>
+
+    <!-- Main loop -->
+    <div class="code-wrap">
+        <div class="code-header">
+            <span class="code-fname">scenario_1_integrated.py — Main planning loop</span>
+            <span class="code-lang">PYTHON</span>
+        </div>
+<pre><code><span class="hi"># Instantiate planner components</span>
+planner  = <span class="cls">HierarchicalPlanner</span>(carla_map)
+executor = <span class="cls">PathExecutor</span>()
+logger   = <span class="cls">RobustnessLogger</span>(<span class="st">"Scenario 1"</span>)
+
+<span class="hi"># Main tick loop (replaces ego.set_autopilot(True))</span>
+<span class="kw">for</span> tick <span class="kw">in</span> range(RUN_TICKS):
+    world.<span class="fn">tick</span>()
+
+    <span class="cm"># ── Replan every 0.5s (10 ticks × 0.05s) ────────────────</span>
+    <span class="kw">if</span> tick % REPLAN_INTERVAL == <span class="nm">0</span>:
+        best = planner.<span class="fn">plan</span>(ego, world, light, speed_limit_ms)
+        <span class="cm"># best.rho_p0, best.rho_p1, best.eta_p2 all set</span>
+        executor.<span class="fn">set_trajectory</span>(best)
+
+    <span class="cm"># ── Execute one step ──────────────────────────────────────</span>
+    control = executor.<span class="fn">step</span>(ego)
+    ego.<span class="fn">apply_control</span>(control)
+
+    <span class="cm"># ── Log robustness ────────────────────────────────────────</span>
+    logger.<span class="fn">record</span>(tick, tick * TICK_DELTA, best)
+
+<span class="cm"># Final TWTL robustness report (min ρ_P0, min ρ_P1, avg η_P2)</span>
+logger.<span class="fn">report</span>()</code></pre>
+    </div>
+
+    <!-- Adapting for other scenarios -->
+    <div class="section-eyebrow" style="margin-top:36px">Adapting for Each Scenario</div>
+
+    <div class="two-col">
+        <div class="card">
+            <div class="card-eyebrow">What Changes per Scenario</div>
+            <div class="card-title">Scenario-Specific Setup</div>
+            <div class="card-body">
+                <ul>
+                    <li><strong>S1:</strong> Light → GREEN frozen; no NPCs</li>
+                    <li><strong>S2:</strong> Light → YELLOW at t=0, RED at t=3s</li>
+                    <li><strong>S3:</strong> Light → RED frozen; 2 static NPCs</li>
+                    <li><strong>S4:</strong> Light → GREEN; 3 walking pedestrians</li>
+                </ul>
+                <p style="margin-top:10px">The planner loop is identical in all four. Only the world state differs.</p>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-eyebrow">What the Planner Handles Automatically</div>
+            <div class="card-title">Planner Adaptations</div>
+            <div class="card-body">
+                <ul>
+                    <li><strong>S1:</strong> Detects INTERSECTION ctx, picks comfort-first path at speed limit</li>
+                    <li><strong>S2:</strong> When light turns RED, P1 filter removes all junction-entering paths</li>
+                    <li><strong>S3:</strong> P0 filter keeps safe-distance paths; P1 filters out any red-entry</li>
+                    <li><strong>S4:</strong> P0 filter removes paths within 2.5m of pedestrians (overrides green light)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Console output example -->
+    <div class="code-wrap" style="margin-top:28px">
+        <div class="code-header">
+            <span class="code-fname">Example console output (Scenario 1)</span>
+            <span class="code-lang">STDOUT</span>
+        </div>
+<pre><code><span class="cm">[S1] Loading Town05...</span>
+<span class="cm">[S1] Ego spawned at Location(x=0.2, y=-39.8, z=0.3)</span>
+<span class="cm">[S1] Light 47 → GREEN (frozen)</span>
+<span class="cm">[S1] Starting planning loop (replan every 10 ticks = 0.50s)</span>
+
+<span class="cm">[Generator] Generated 30 candidate trajectories (6 speeds × 5 offsets)</span>
+<span class="cm">[Context]   Detected: intersection (junction=False, speed_limit=30 km/h)</span>
+<span class="cm">[Planner]   Stage 1 (P0): 30 → 22 safe trajectories</span>
+<span class="cm">[Planner]   Stage 2 (P1): 22 → 14 legal trajectories</span>
+<span class="cm">[Planner]   Stage 3 (P2, ctx=intersection): selected α=0.7, β=0.00m | ρ_P0=3.21 ρ_P1=1.44 η_P2=0.683</span>
+
+  t=  0.0s | pos=(  0.2,-39.8) | speed=  0.0 km/h | ρ_P0=+3.21 ρ_P1=+1.44 η_P2=0.683
+  t=  1.0s | pos=(  0.2,-33.1) | speed= 19.4 km/h | ρ_P0=+3.21 ρ_P1=+1.44 η_P2=0.683
+  ...
+  t=  8.0s | pos=(  0.2, -1.4) | speed= 21.0 km/h | ρ_P0=+3.21 ρ_P1=+1.44 η_P2=0.683 ⚡ IN JUNCTION
+  ...
+  t= 15.0s | pos=(  0.2, 28.3) | speed= 21.0 km/h | ρ_P0=+3.21 ρ_P1=+1.44 η_P2=0.683
+
+<span class="cm">═══════════════════════════════════════════════</span>
+<span class="cm">  TWTL ROBUSTNESS REPORT — Scenario 1</span>
+<span class="cm">═══════════════════════════════════════════════</span>
+<span class="cm">  min ρ_P0 (safety)   =  +3.210</span>
+<span class="cm">  min ρ_P1 (legal)    =  +1.440</span>
+<span class="cm">  avg η_P2 (soft)     =  +0.683</span>
+<span class="cm">  ────────────────────────────────────────────</span>
+<span class="cm">  ρ_overall           =  +1.440</span>
+<span class="cm">  Result : PASSED ✓</span></code></pre>
+    </div>
+
+    <div class="callout success" style="margin-top: 24px">
+        <strong>What this proves:</strong>
+        <p>ρ_overall &gt; 0 means the executed trajectory formally satisfies the TWTL specification φ₁
+        at all time steps. This is exactly Ahmad's robustness result applied to a live CARLA run.</p>
+    </div>
+</div>
+
+</div><!-- /main -->
+
+<script>
+    const TABS = ['overview','generator','context','filter','executor','integration'];
+
+    function show(id) {
+        TABS.forEach((t, i) => {
+            document.getElementById('panel-' + t).classList.toggle('active', t === id);
+            document.querySelectorAll('.tab')[i].classList.toggle('active', t === id);
+        });
+    }
+</script>
+</body>
+</html>
