@@ -177,7 +177,9 @@ class ContextDetector:
         CITY          → balanced
         PARKING       → ultra-slow, precision lateral
     """
-
+    # TODO [Nidhi]: this is a very basic implementation. In a real system, context detection
+    # would be more sophisticated and use richer information (e.g. traffic light state, nearby actors, lane markings, etc.) rather than just speed limit and junction presence.
+    
     JUNCTION_LOOKAHEAD   = 25.0   # metres — how far ahead to look for junctions
     HIGHWAY_SPEED_LIMIT  = 50.0   # km/h — threshold for highway classification
     PARKING_SPEED_LIMIT  = 20.0   # km/h
@@ -252,7 +254,7 @@ class TWTLEvaluator:
     P2 (Soft)     — ranking, AGM robustness η
         Context-weighted combination of comfort, efficiency, safety margin
     """
-
+    # TODO [Nidhi]: this is a good place to learn about TWTL i practice -- recall our last session on Temporal Logics.
     # P0 thresholds
     OBSTACLE_SAFETY_MARGIN  = 1.5    # metres clearance required
     PED_SAFETY_MARGIN       = 2.5    # metres clearance from pedestrians
