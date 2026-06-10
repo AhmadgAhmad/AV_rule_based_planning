@@ -53,19 +53,31 @@ def setup(world):
     ego_bp = bp_lib.find('vehicle.tesla.model3')
     ego_bp.set_attribute('color', '255,255,255')
 
+    # Get all spawn points
     spawn_pts  = carla_map.get_spawn_points()
-    target_loc = carla.Location(x=0.0, y=-40.0, z=0.5)
-    spawn_tf   = min(spawn_pts, key=lambda sp: sp.location.distance(target_loc))
+
+    # Use spawn point index 0 as a reliable fallback.
+    # Town05 spawn points are pre-validated road positions — much safer than
+    # searching by coordinate, which can miss if no spawn exists near that location.
+    # Change the index here to try different starting positions.
+    SPAWN_INDEX = 0
+    spawn_tf    = spawn_pts[SPAWN_INDEX]
+    print(f"[S1] Using spawn point #{SPAWN_INDEX}: {spawn_tf.location}")
+
     ego        = world.spawn_actor(ego_bp, spawn_tf)
     actors['ego'] = ego
     print(f"[S1] Ego spawned at {ego.get_location()}")
 
     # Traffic light → GREEN, frozen
+    # Search up to 80m — spawn index 0 may be far from an intersection
     lights = world.get_actors().filter('traffic.traffic_light')
+    print(f"[S1] Found {len(list(lights))} traffic lights in world")
     light  = min(lights,
                  key=lambda l: l.get_location().distance(ego.get_location()),
                  default=None)
     if light:
+        dist = light.get_location().distance(ego.get_location())
+        print(f"[S1] Nearest light {light.id} is {dist:.1f}m away")
         light.set_state(carla.TrafficLightState.Green)
         light.freeze(True)
         light.set_green_time(60.0)

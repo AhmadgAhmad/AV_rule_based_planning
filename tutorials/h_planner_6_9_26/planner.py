@@ -266,13 +266,20 @@ class TWTLEvaluator:
                      carla_map,
                      light: Optional[carla.Actor],
                      speed_limit_ms: float,
-                     context: Context) -> List[Trajectory]:
+                     context: Context,
+                     ego_id: int = -1) -> List[Trajectory]:
         """
         Compute rho_p0, rho_p1, eta_p2 for every trajectory.
         Modifies trajectory objects in-place. Returns same list.
+
+        ego_id: the actor ID of the ego vehicle — excluded from obstacle check.
+                Without this, the ego counts as its own obstacle and P0 rejects
+                every trajectory immediately (distance = 0 < safety margin).
         """
         # Pre-fetch world actors once (expensive CARLA call)
-        obstacles    = list(world.get_actors().filter('vehicle.*'))
+        # IMPORTANT: filter out ego from obstacles — it is not an obstacle to itself
+        obstacles    = [a for a in world.get_actors().filter('vehicle.*')
+                        if a.id != ego_id]
         pedestrians  = list(world.get_actors().filter('walker.pedestrian.*'))
         light_state  = light.get_state() if light else None
 
@@ -445,7 +452,8 @@ class HierarchicalPlanner:
 
         # ── 2. Evaluate all trajectories (P0, P1, P2) ───────────────────────
         candidates = self.evaluator.evaluate_all(
-            candidates, world, self.carla_map, light, speed_limit_ms, context
+            candidates, world, self.carla_map, light, speed_limit_ms, context,
+            ego_id=ego.id   # exclude ego from its own obstacle check
         )
 
         # ── Stage 1: P0 filter ───────────────────────────────────────────────
