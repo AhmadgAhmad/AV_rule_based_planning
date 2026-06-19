@@ -184,6 +184,16 @@ class ContextDetector:
     HIGHWAY_SPEED_LIMIT  = 50.0   # km/h — threshold for highway classification
     PARKING_SPEED_LIMIT  = 20.0   # km/h
 
+    # If there is a light detected, also treat it as an intersection scenario
+    def lightAhead(self, ego, world, radius=30):
+        lights = world.get_actors().filter('traffic.traffic_light')
+        egoLoc = ego.get_location()
+        for light in lights:
+            if light.get_location().distance(egoLoc) < radius:
+                return True
+        return False
+
+
     def detect(self,
                ego: carla.Actor,
                carla_map,
@@ -195,7 +205,7 @@ class ContextDetector:
         speed_limit  = self._get_speed_limit(ego, carla_map)
 
         # Priority order: most specific first
-        if self._is_at_or_approaching_intersection(waypoint):
+        if self._is_at_or_approaching_intersection(waypoint) or self.lightAhead(ego, world):
             ctx = Context.INTERSECTION
         elif speed_limit > self.HIGHWAY_SPEED_LIMIT:
             ctx = Context.HIGHWAY
