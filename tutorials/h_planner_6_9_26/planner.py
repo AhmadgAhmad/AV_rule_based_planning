@@ -494,7 +494,7 @@ class HierarchicalPlanner:
               f"selected α={best.speed_factor:.1f}, β={best.lateral_offset:+.2f}m | "
               f"ρ_P0={best.rho_p0:.2f} ρ_P1={best.rho_p1:.2f} η_P2={best.eta_p2:.3f}")
 
-        return best
+        return best, candidates
 
     def _emergency_brake_trajectory(self, ego: carla.Actor) -> Trajectory:
         """Return a single-waypoint stop-in-place trajectory."""

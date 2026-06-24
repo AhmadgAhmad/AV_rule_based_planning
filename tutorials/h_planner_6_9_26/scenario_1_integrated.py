@@ -61,15 +61,16 @@ def setup(world):
     # searching by coordinate, which can miss if no spawn exists near that location.
     # Change the index here to try different starting positions.
     ego = None
+    SPAWN_INDEX = 12
+    spawn_tf = spawn_pts[SPAWN_INDEX]
 
-    for i, spawn_tf in enumerate(spawn_pts):
-        ego = world.try_spawn_actor(ego_bp, spawn_tf)
-        if ego is not None:
-            print(f"[S1] Ego spawned at spawn point #{i}: {spawn_tf.location}")
-            break
-
+    ego = world.try_spawn_actor(ego_bp, spawn_tf)
     if ego is None:
-        raise RuntimeError("Could not spawn ego at any spawn point.")
+        raise RuntimeError(f"Could not spawn ego at spawn point {SPAWN_INDEX}")
+
+    print(f"[S1] Ego spawned at spawn point #{SPAWN_INDEX}: {spawn_tf.location}")
+    actors['ego'] = ego
+
 
     actors['ego'] = ego
     print(f"[S1] Ego spawned at {ego.get_location()}")
@@ -165,8 +166,42 @@ def run():
 
             # ── Replan ───────────────────────────────────────────────────────
             if tick % REPLAN_INTERVAL == 0:
-                best = planner.plan(ego, world, light, speed_limit_ms)
+                best, candidates = planner.plan(ego, world, light, speed_limit_ms)
+                # Visualize all candidate trajectories
+                for traj in candidates:
+                    for i in range(len(traj.waypoints) - 1):
+                        world.debug.draw_line(
+                            traj.waypoints[i],
+                            traj.waypoints[i + 1],
+                            thickness=0.1,
+                            color=carla.Color(0, 255, 0),
+                            life_time=2.0
+                        )
+
+                # Highlight the chosen trajectory
+                for i in range(len(best.waypoints) - 1):
+                    world.debug.draw_line(
+                        best.waypoints[i],
+                        best.waypoints[i + 1],
+                        thickness=0.2,
+                        color=carla.Color(0, 0, 255),
+                        life_time=2.0
+                    )
+
+
                 executor.set_trajectory(best)
+                # Highlight the chosen trajectory in BLUE
+                for i in range(len(best.waypoints) - 1):
+                    p1 = best.waypoints[i]
+                    p2 = best.waypoints[i + 1]
+                    world.debug.draw_line(
+                        p1,
+                        p2,
+                        thickness=0.2,
+                        color=carla.Color(0, 0, 255),   # blue
+                        life_time=0.5
+                    )
+
 
             # ── Execute one step ─────────────────────────────────────────────
             control = executor.step(ego)
