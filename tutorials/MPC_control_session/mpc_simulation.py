@@ -45,7 +45,7 @@ NX = 4               # state dim:    [X, Y, psi, v]
 NU = 2               # control dim:  [delta, a]
 
 # State cost  Q  (penalize: X, Y, heading, speed error)
-Q_diag  = np.array([4., 4., 2., 10.])
+Q_diag  = np.array([8., 8., 5., 2.])
 # Terminal cost  Qf = 5 × Q  (arrive cleanly)
 Qf_diag = 5 * Q_diag
 # Control cost  R
@@ -143,12 +143,22 @@ def build_ref(n_pts: int = 400):
 
 RX, RY, RPSI, RV = build_ref()
 
-def get_ref_window(x: np.ndarray):
-    """Find closest ref point and return N+1 ahead."""
-    dists = np.hypot(RX - x[0], RY - x[1])
+def get_ref_window(x: np.ndarray,
+                   rx=None, ry=None, rpsi=None, rv=None):
+    """Find closest ref point and return N+1 ahead.
+    Accepts optional ref arrays — falls back to module globals if not passed.
+    Both call styles work:
+        get_ref_window(x)                          # uses module RX/RY/...
+        get_ref_window(x, RX, RY, RPSI, RV)       # explicit arrays
+    """
+    rx   = RX   if rx   is None else rx
+    ry   = RY   if ry   is None else ry
+    rpsi = RPSI if rpsi is None else rpsi
+    rv   = RV   if rv   is None else rv
+    dists = np.hypot(rx - x[0], ry - x[1])
     idx   = int(np.argmin(dists))
-    idxs  = [min(idx + k, len(RX)-1) for k in range(N+1)]
-    return (RX[idxs], RY[idxs], RPSI[idxs], RV[idxs])
+    idxs  = [min(idx + k, len(rx)-1) for k in range(N+1)]
+    return (rx[idxs], ry[idxs], rpsi[idxs], rv[idxs])
 
 
 # ═══════════════════════════════════════════════════════
@@ -265,9 +275,7 @@ def build_qp(x0: np.ndarray, ref_x, ref_y, ref_psi, ref_v,
                warm_starting=True, verbose=False,
                eps_abs=1e-4, eps_rel=1e-4,
                max_iter=4000, polish=True)
-
     res = prob.solve()
-
     z   = res.x if res.x is not None else np.zeros(nz)
 
     X_pred = np.vstack([x0, z[:N*NX].reshape(N, NX)])
