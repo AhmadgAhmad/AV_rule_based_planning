@@ -41,7 +41,43 @@ RUN_TICKS         = 300        # 15 seconds
 REPLAN_INTERVAL   = 10         # replan every 10 ticks (every 0.5s)
 OUTPUT_DIR        = 'output/scenario_1_integrated'
 
-# ─── SCENARIO SETUP ──────────────────────────────────────────────────────────
+# ─── WEATHER ──────────────────────────────────────────────────────────────────
+
+def _debug_weather() -> carla.WeatherParameters:
+    """
+    Flat, glare-free lighting tuned for debugging.
+
+    The key knobs:
+        sun_altitude_angle  — 90° = directly overhead (no long shadows, no glare)
+        sun_azimuth_angle   — direction of sun, irrelevant at altitude=90
+        cloudiness          — 60–80 softens shadows without going grey
+        fog_density         — 0 = crystal clear
+        precipitation       — 0 = dry road
+        wetness             — 0 = no reflections on road surface (those add glare too)
+        scattering_intensity — 0 = disables atmospheric bloom entirely
+
+    Switch sun_altitude_angle down to ~45 for a nicer render once debugging is done.
+    """
+    w = carla.WeatherParameters(
+        cloudiness             = 60.0,   # partial cloud — softens harsh shadows
+        precipitation          = 0.0,
+        precipitation_deposits = 0.0,
+        wind_intensity         = 0.0,
+        sun_azimuth_angle      = 0.0,
+        sun_altitude_angle     = 90.0,   # ← sun straight up = zero glare on camera
+        fog_density            = 0.0,
+        fog_distance           = 0.0,
+        fog_falloff            = 0.0,
+        wetness                = 0.0,    # ← dry road = no mirror reflections
+        scattering_intensity   = 0.0,    # ← kills the bloom haze entirely
+        mie_scattering_scale   = 0.0,
+        rayleigh_scattering_scale = 0.0331,
+    )
+    return w
+
+
+# ─── SCENARIO SETUP ───────────────────────────────────────────────────────────
+
 
 def setup(world):
     """Spawn ego, freeze light GREEN, attach overhead camera."""
@@ -107,7 +143,9 @@ def run():
 
     print(f"[S1] Loading {TOWN}...")
     world = client.load_world(TOWN)
-    world.set_weather(carla.WeatherParameters.ClearNoon)
+    # ClearNoon causes heavy bloom/lens flare — use a custom weather
+    # tuned for visibility during debugging.
+    world.set_weather(_debug_weather())
 
     settings = world.get_settings()
     settings.synchronous_mode    = True
