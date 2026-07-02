@@ -96,13 +96,37 @@ def setup(world):
     # Town05 spawn points are pre-validated road positions — much safer than
     # searching by coordinate, which can miss if no spawn exists near that location.
     # Change the index here to try different starting positions.
-    SPAWN_INDEX = 0
-    spawn_tf    = spawn_pts[SPAWN_INDEX]
-    print(f"[S1] Using spawn point #{SPAWN_INDEX}: {spawn_tf.location}")
+    ego = None
+    SPAWN_INDEX = 12
+    spawn_tf = spawn_pts[SPAWN_INDEX]
 
-    ego        = world.spawn_actor(ego_bp, spawn_tf)
+    ego = world.try_spawn_actor(ego_bp, spawn_tf)
+    if ego is None:
+        raise RuntimeError(f"Could not spawn ego at spawn point {SPAWN_INDEX}")
+
+    print(f"[S1] Ego spawned at spawn point #{SPAWN_INDEX}: {spawn_tf.location}")
+    actors['ego'] = ego
+
+
     actors['ego'] = ego
     print(f"[S1] Ego spawned at {ego.get_location()}")
+
+    # Give the camera a spectator view angle
+    world.get_spectator().set_transform(carla.Transform(
+        ego.get_location() + carla.Location(z=20),
+        carla.Rotation(pitch=-90)
+    ))
+
+    world.tick()
+
+    world.debug.draw_string(
+        ego.get_location() + carla.Location(z=3),
+        "EGO CAR HERE",
+        draw_shadow=False,
+        color=carla.Color(255, 0, 0),
+        life_time=20.0,
+        persistent_lines=True
+    )
 
     # Traffic light → GREEN, frozen
     # Search up to 80m — spawn index 0 may be far from an intersection
@@ -126,10 +150,13 @@ def setup(world):
     cam_bp.set_attribute('image_size_x', '1280')
     cam_bp.set_attribute('image_size_y', '720')
     cam = world.spawn_actor(
-        cam_bp,
-        carla.Transform(carla.Location(z=25.0), carla.Rotation(pitch=-90.0)),
-        attach_to=ego
-    )
+    cam_bp,
+    carla.Transform(
+        carla.Location(x=-10.0, y=0.0, z=6.0),
+        carla.Rotation(pitch=-25.0, yaw=0.0)
+    ),
+    attach_to=ego
+)
     cam.listen(lambda img: img.save_to_disk(f'{OUTPUT_DIR}/frame_{img.frame:06d}.png'))
     actors['camera'] = cam
 
@@ -177,12 +204,54 @@ def run():
 
             # ── Replan ───────────────────────────────────────────────────────
             if tick % REPLAN_INTERVAL == 0:
-                best = planner.plan(ego, world, light, speed_limit_ms)
+                best, candidates = planner.plan(ego, world, light, speed_limit_ms)
+                # Visualize all candidate trajectories
+                for traj in candidates:
+                    for i in range(len(traj.waypoints) - 1):
+                        world.debug.draw_line(
+                            traj.waypoints[i],
+                            traj.waypoints[i + 1],
+                            thickness=0.1,
+                            color=carla.Color(0, 255, 0),
+                            life_time=2.0
+                        )
+
+                # Highlight the chosen trajectory
+                for i in range(len(best.waypoints) - 1):
+                    world.debug.draw_line(
+                        best.waypoints[i],
+                        best.waypoints[i + 1],
+                        thickness=0.2,
+                        color=carla.Color(0, 0, 255),
+                        life_time=2.0
+                    )
+
+
                 executor.set_trajectory(best)
+                # Highlight the chosen trajectory in BLUE
+                for i in range(len(best.waypoints) - 1):
+                    p1 = best.waypoints[i]
+                    p2 = best.waypoints[i + 1]
+                    world.debug.draw_line(
+                        p1,
+                        p2,
+                        thickness=0.2,
+                        color=carla.Color(0, 0, 255),   # blue
+                        life_time=0.5
+                    )
+
 
             # ── Execute one step ─────────────────────────────────────────────
             control = executor.step(ego)
             ego.apply_control(control)
+            # Trying a smoother, top down spectator view
+            spectator = world.get_spectator()
+            tf = ego.get_transform()
+
+            spectator.set_transform(carla.Transform(
+                tf.location + carla.Location(x=0, y = 0, z=30),
+                carla.Rotation(pitch=-70, yaw=tf.rotation.yaw)
+            ))
 
             # ── Log robustness ───────────────────────────────────────────────
             logger.record(tick, t, best)
