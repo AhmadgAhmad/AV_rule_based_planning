@@ -71,14 +71,21 @@ X0     = np.array([0., 1.5, 0.08, 5.0])   # slightly off-track start
 
 def bicycle_step(x: np.ndarray, u: np.ndarray, dt: float) -> np.ndarray:
     """
-    Nonlinear kinematic bicycle model — used for TRUE simulation.
-    (MPC linearizes this; simulation uses the real nonlinear version)
+    Kinematic bicycle model in CARLA's coordinate frame.
 
-    Equations:
-        Ẋ   = v · cos(ψ)
-        Ẏ   = v · sin(ψ)
-        ψ̇   = v / L · tan(δ)
-        v̇   = a
+    CARLA convention:
+      - X increases rightward (East)
+      - Y increases downward (South) — left-handed!
+      - yaw=0   → facing +X (East)
+      - yaw=90  → facing +Y (South)
+      - yaw is CLOCKWISE positive
+
+    In this frame the position equations are identical to standard math:
+        Ẋ = v · cos(ψ),   Ẏ = v · sin(ψ)
+    But the yaw rate equation flips sign because clockwise is positive:
+        ψ̇ = -v / L · tan(δ)   ← negative! right steer = clockwise = more positive yaw
+                                   but standard math says positive delta = CCW = less positive
+    This is the fix: negate the tan(delta) term.
     """
     X, Y, psi, v = x
     delta, a = u
@@ -86,7 +93,7 @@ def bicycle_step(x: np.ndarray, u: np.ndarray, dt: float) -> np.ndarray:
 
     X_n   = X   + v * np.cos(psi) * dt
     Y_n   = Y   + v * np.sin(psi) * dt
-    psi_n = psi + v / L * np.tan(delta) * dt
+    psi_n = psi - v / L * np.tan(delta) * dt   # ← CARLA fix: negative sign
     v_n   = np.clip(v + a * dt, V_MIN, V_MAX)
 
     return np.array([X_n, Y_n, psi_n, v_n])
@@ -106,19 +113,20 @@ def linearize(x_op: np.ndarray, u_op: np.ndarray, dt: float):
     delta, a = u_op
     v = max(v, V_MIN)
 
-    # Jacobian ∂f/∂x  (continuous time)
+    # Jacobian ∂f/∂x  (continuous time) — CARLA frame
+    # psi_dot = -v/L * tan(delta), so d(psi_dot)/d(psi) = 0, d(X_dot)/d(psi) = -v*sin(psi), etc.
     Ac = np.array([
         [0, 0, -v*np.sin(psi),  np.cos(psi)],
         [0, 0,  v*np.cos(psi),  np.sin(psi)],
-        [0, 0,  0,               np.tan(delta)/L],
-        [0, 0,  0,               0            ],
+        [0, 0,  0,              -np.tan(delta)/L],   # ← negative: CARLA clockwise yaw
+        [0, 0,  0,               0           ],
     ])
 
     # Jacobian ∂f/∂u  (continuous time)
     Bc = np.array([
         [0,  0],
         [0,  0],
-        [v / (L * np.cos(delta)**2),  0],
+        [-v / (L * np.cos(delta)**2),  0],   # ← negative: matches psi_dot sign
         [0,  1],
     ])
 

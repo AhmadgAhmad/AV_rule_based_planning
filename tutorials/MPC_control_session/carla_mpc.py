@@ -17,7 +17,6 @@ import numpy as np
 import time
 import math
 import sys
-import matplotlib.pyplot as plt
 
 sys.path.insert(0, '/home/ahmad/Desktop/RuleBookDriving/tutorials/MPC_control_session')
 from mpc_osqp import build_qp, get_ref_window
@@ -103,7 +102,7 @@ def build_ref(world, vehicle, n_pts=200, spacing=2.0):
         loc = wp.transform.location
         xs.append(loc.x)
         ys.append(loc.y)
-        psis.append(-math.radians(wp.transform.rotation.yaw))  # negate: CARLA→MPC
+        psis.append(math.radians(wp.transform.rotation.yaw))   # CARLA frame, as-is
 
         # Draw green sphere at every 5th waypoint
         if len(xs) % 5 == 1:
@@ -146,7 +145,7 @@ def build_ref(world, vehicle, n_pts=200, spacing=2.0):
     vpos = veh_tf.location
     d0   = np.hypot(vpos.x - RX[0], vpos.y - RY[0])
     veh_yaw_deg = veh_tf.rotation.yaw
-    ref_yaw_deg = -math.degrees(RPSI[0])  # back to CARLA degrees for display
+    ref_yaw_deg = math.degrees(RPSI[0])   # CARLA degrees, no negation
 
     print(f"[3] Ref: {len(xs)} pts  d0={d0:.2f}m")
     print(f"    Vehicle heading : {veh_yaw_deg:.1f}°")
@@ -174,42 +173,27 @@ def build_ref(world, vehicle, n_pts=200, spacing=2.0):
     return RX, RY, RPSI, RV
 
 RX, RY, RPSI, RV = build_ref(world, vehicle)
-plt.plot(RX, RY, 'g.-')
 
-# Add this right after build_ref() returns, before the main loop
-print("First 5 ref points:")
-for i in range(5):
-    print(f"  [{i}] ({RX[i]:.1f}, {RY[i]:.1f})  psi={math.degrees(-RPSI[i]):.1f}°")
-
-veh_tf = vehicle.get_transform()
-print(f"Vehicle: ({veh_tf.location.x:.1f}, {veh_tf.location.y:.1f})  yaw={veh_tf.rotation.yaw:.1f}°")
 
 # ── State: negate psi for MPC ────────────────────────────────────
 def get_state(vehicle) -> np.ndarray:
-    """
-    CARLA → MPC state.
-    X, Y stay as-is (same axes).
-    psi negated: CARLA clockwise → MPC counter-clockwise.
-    v is speed magnitude, always positive.
-    """
+    """CARLA → MPC state [X, Y, psi, v] — all in CARLA's native frame."""
     tf  = vehicle.get_transform()
     vel = vehicle.get_velocity()
-    psi_carla = math.radians(tf.rotation.yaw)
-    psi_mpc   = -psi_carla               # ★ THE FIX
-    v         = math.sqrt(vel.x**2 + vel.y**2)
-    return np.array([tf.location.x, tf.location.y, psi_mpc, v])
+    psi = math.radians(tf.rotation.yaw)   # as-is, no negation
+    v   = math.sqrt(vel.x**2 + vel.y**2)
+    return np.array([tf.location.x, tf.location.y, psi, v])
 
 
 # ── Control: negate delta back to CARLA ──────────────────────────
 def to_carla_cmd(u0: np.ndarray) -> carla.VehicleControl:
     """
-    MPC output delta is in right-handed frame.
-    Negate to convert back to CARLA left-handed steer.
+    MPC output → CARLA command. No sign flip: model is now in CARLA frame.
+    Positive delta = clockwise yaw = right turn = positive CARLA steer. Consistent.
     """
-    delta_mpc, a = u0
-    delta_carla  = -delta_mpc            # ★ THE FIX (inverse of get_state)
+    delta, a = u0
     cmd = carla.VehicleControl()
-    cmd.steer = float(np.clip(delta_carla / DELTA_MAX, -1.0, 1.0))
+    cmd.steer = float(np.clip(delta / DELTA_MAX, -1.0, 1.0))
     if a >= 0:
         cmd.throttle = float(np.clip(a / A_MAX, 0.0, 1.0))
         cmd.brake    = 0.0
