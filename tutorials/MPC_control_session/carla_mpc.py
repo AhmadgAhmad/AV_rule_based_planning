@@ -174,6 +174,13 @@ def build_ref(world, vehicle, n_pts=200, spacing=2.0):
 
 RX, RY, RPSI, RV = build_ref(world, vehicle)
 
+# Add this right after build_ref() returns, before the main loop
+print("First 5 ref points:")
+for i in range(5):
+    print(f"  [{i}] ({RX[i]:.1f}, {RY[i]:.1f})  psi={math.degrees(-RPSI[i]):.1f}°")
+
+veh_tf = vehicle.get_transform()
+print(f"Vehicle: ({veh_tf.location.x:.1f}, {veh_tf.location.y:.1f})  yaw={veh_tf.rotation.yaw:.1f}°")
 
 # ── State: negate psi for MPC ────────────────────────────────────
 def get_state(vehicle) -> np.ndarray:
