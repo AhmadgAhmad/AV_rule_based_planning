@@ -45,13 +45,13 @@ NX = 4               # state dim:    [X, Y, psi, v]
 NU = 2               # control dim:  [delta, a]
 
 # State cost  Q  (penalize: X, Y, heading, speed error)
-Q_diag  = np.array([8., 8., 5., 2.])
+Q_diag  = np.array([2., 2., 1., 1.])   # lower: less aggressive tracking
 # Terminal cost  Qf = 5 × Q  (arrive cleanly)
-Qf_diag = 5 * Q_diag
+Qf_diag = 3 * Q_diag                    # was 5x, now 3x
 # Control cost  R
-R_diag  = np.array([10., 1.])
+R_diag  = np.array([80., 2.])            # much higher steer penalty → no saturation
 # Control rate cost  Rd  (smoothness)
-Rd_diag = np.array([30., 3.])
+Rd_diag = np.array([60., 5.])            # higher rate cost → smooth steering
 
 # Constraints
 DELTA_MAX =  0.45     # max steering [rad]

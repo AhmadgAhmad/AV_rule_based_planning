@@ -25,7 +25,7 @@ DELTA_MAX = 0.45
 A_MAX     =  3.0
 A_MIN     = -5.0
 DT        =  0.1
-V_REF     =  5.0
+V_REF     =  3.5    # slower = easier to track tight town curves
 
 # ── Connect ──────────────────────────────────────────────────────
 print("[1] Connecting...")
@@ -173,13 +173,18 @@ try:
         err_hist.append(err)
 
         sat = abs(u0[0]) >= DELTA_MAX * 0.98
+        # Heading error: angle between vehicle psi and reference psi
+        psi_err = x[2] - ref_psi[0]
+        psi_err = (psi_err + np.pi) % (2*np.pi) - np.pi  # wrap to [-π, π]
+
         print(f"step {step:4d} | "
               f"pos=({x[0]:7.1f},{x[1]:7.1f}) | "
               f"v={x[3]:.2f} | "
               f"δ={u0[0]:+.3f}{'SAT' if sat else '   '} "
               f"a={u0[1]:+.2f} | "
               f"steer={cmd.steer:+.3f} | "
-              f"err={err:.2f}m | {dt_ms:.1f}ms")
+              f"err={err:.2f}m ψΔ={np.degrees(psi_err):+.1f}° | "
+              f"{dt_ms:.1f}ms")
 
 finally:
     print(f"\n── Stopped at step {step} ──")
