@@ -17,6 +17,7 @@ import numpy as np
 import time
 import math
 import sys
+import matplotlib.pyplot as plt
 
 sys.path.insert(0, '/home/ahmad/Desktop/RuleBookDriving/tutorials/MPC_control_session')
 from mpc_osqp import build_qp, get_ref_window
@@ -173,6 +174,7 @@ def build_ref(world, vehicle, n_pts=200, spacing=2.0):
     return RX, RY, RPSI, RV
 
 RX, RY, RPSI, RV = build_ref(world, vehicle)
+plt.plot(RX, RY, 'g.-')
 
 # Add this right after build_ref() returns, before the main loop
 print("First 5 ref points:")
