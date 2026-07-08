@@ -68,22 +68,73 @@ def update_spectator(v, h=28, d=12):
 update_spectator(vehicle)
 
 # ── Reference path ───────────────────────────────────────────────
-def build_ref(world, vehicle, n_pts=300, spacing=2.0):
-    cmap = world.get_map()
-    wp   = cmap.get_waypoint(
-        vehicle.get_transform().location,
+def build_ref(world, vehicle, n_pts=200, spacing=2.0):
+    """
+    Build reference path from vehicle's current waypoint.
+    Follows the lane FORWARD (same direction vehicle is facing).
+    Draws the path as green spheres in CARLA so you can see it.
+    """
+    cmap   = world.get_map()
+    debug  = world.debug
+    veh_tf = vehicle.get_transform()
+
+    wp = cmap.get_waypoint(
+        veh_tf.location,
         project_to_road=True,
         lane_type=carla.LaneType.Driving)
 
+    # ── Check we're going FORWARD not backward ────────────────
+    # Dot product of vehicle heading vs waypoint heading:
+    # if negative, waypoints go opposite direction → use previous direction
+    veh_yaw = math.radians(veh_tf.rotation.yaw)
+    wp_yaw  = math.radians(wp.transform.rotation.yaw)
+    dot = math.cos(veh_yaw)*math.cos(wp_yaw) + math.sin(veh_yaw)*math.sin(wp_yaw)
+    if dot < 0:
+        print("    [REF] Waypoint direction opposite to vehicle — flipping")
+        # Try the other lane direction
+        alt = wp.get_left_lane() or wp.get_right_lane()
+        if alt:
+            wp = alt
+
     xs, ys, psis = [], [], []
+    prev_wp = None
     for _ in range(n_pts):
         loc = wp.transform.location
         xs.append(loc.x)
         ys.append(loc.y)
-        # ★ Negate yaw: CARLA clockwise → MPC counter-clockwise
-        psis.append(-math.radians(wp.transform.rotation.yaw))
+        psis.append(-math.radians(wp.transform.rotation.yaw))  # negate: CARLA→MPC
+
+        # Draw green sphere at every 5th waypoint
+        if len(xs) % 5 == 1:
+            debug.draw_point(
+                carla.Location(x=loc.x, y=loc.y, z=loc.z + 0.5),
+                size=0.08,
+                color=carla.Color(0, 255, 0),   # green
+                life_time=30.0,
+                persistent_lines=True
+            )
+
+        # Draw direction arrow at every 20th waypoint
+        if len(xs) % 20 == 1:
+            wp_yaw_rad = math.radians(wp.transform.rotation.yaw)
+            end = carla.Location(
+                x=loc.x + 2.0*math.cos(wp_yaw_rad),
+                y=loc.y + 2.0*math.sin(wp_yaw_rad),
+                z=loc.z + 0.5
+            )
+            debug.draw_arrow(
+                carla.Location(x=loc.x, y=loc.y, z=loc.z+0.5),
+                end,
+                thickness=0.1,
+                arrow_size=0.3,
+                color=carla.Color(0, 200, 255),  # cyan
+                life_time=30.0
+            )
+
         nxt = wp.next(spacing)
-        if not nxt: break
+        if not nxt:
+            break
+        prev_wp = wp
         wp = nxt[0]
 
     RX   = np.array(xs)
@@ -91,11 +142,34 @@ def build_ref(world, vehicle, n_pts=300, spacing=2.0):
     RPSI = np.array(psis)
     RV   = np.full(len(xs), V_REF)
 
-    vpos = vehicle.get_transform().location
+    vpos = veh_tf.location
     d0   = np.hypot(vpos.x - RX[0], vpos.y - RY[0])
-    print(f"[3] Ref: {len(xs)} pts  d0={d0:.2f}m  "
-          f"psi[0]={math.degrees(RPSI[0]):.1f}°(MPC)  "
-          f"psi[1]={math.degrees(RPSI[1]):.1f}°")
+    veh_yaw_deg = veh_tf.rotation.yaw
+    ref_yaw_deg = -math.degrees(RPSI[0])  # back to CARLA degrees for display
+
+    print(f"[3] Ref: {len(xs)} pts  d0={d0:.2f}m")
+    print(f"    Vehicle heading : {veh_yaw_deg:.1f}°")
+    print(f"    Ref[0]  heading : {ref_yaw_deg:.1f}°  (dot={dot:.2f})")
+    print(f"    Ref start: ({RX[0]:.1f}, {RY[0]:.1f})")
+    print(f"    Ref end:   ({RX[-1]:.1f}, {RY[-1]:.1f})")
+    print(f"    → GREEN dots + CYAN arrows drawn in CARLA viewport")
+
+    # Mark start with a big red sphere
+    debug.draw_point(
+        carla.Location(x=float(RX[0]), y=float(RY[0]), z=vpos.z+1.0),
+        size=0.25,
+        color=carla.Color(255, 0, 0),   # red = start
+        life_time=30.0
+    )
+    # Mark end with a big blue sphere
+    debug.draw_point(
+        carla.Location(x=float(RX[-1]), y=float(RY[-1]), z=vpos.z+1.0),
+        size=0.25,
+        color=carla.Color(0, 0, 255),   # blue = end
+        life_time=30.0
+    )
+
+    world.tick()   # flush debug draws to viewport
     return RX, RY, RPSI, RV
 
 RX, RY, RPSI, RV = build_ref(world, vehicle)
@@ -172,18 +246,80 @@ try:
         err = np.hypot(x[0] - ref_x[0], x[1] - ref_y[0])
         err_hist.append(err)
 
-        sat = abs(u0[0]) >= DELTA_MAX * 0.98
-        # Heading error: angle between vehicle psi and reference psi
-        psi_err = x[2] - ref_psi[0]
-        psi_err = (psi_err + np.pi) % (2*np.pi) - np.pi  # wrap to [-π, π]
+        # ── Live debug drawing in CARLA viewport ──────────────
+        debug = world.debug
+        veh_loc = vehicle.get_transform().location
 
+        # 1. MPC predicted horizon: yellow dots
+        #    X_pred not available here — draw ref window instead
+        for i in range(0, len(ref_x), 2):
+            debug.draw_point(
+                carla.Location(x=float(ref_x[i]),
+                               y=float(ref_y[i]),
+                               z=veh_loc.z + 0.3),
+                size=0.06,
+                color=carla.Color(255, 220, 0),   # yellow
+                life_time=0.15   # short: refreshes each step
+            )
+
+        # 2. Immediate target (closest ref point): magenta sphere
+        debug.draw_point(
+            carla.Location(x=float(ref_x[0]),
+                           y=float(ref_y[0]),
+                           z=veh_loc.z + 0.8),
+            size=0.18,
+            color=carla.Color(255, 0, 200),   # magenta
+            life_time=0.15
+        )
+
+        # 3. Steering arrow from vehicle showing applied delta
+        yaw_carla = vehicle.get_transform().rotation.yaw
+        delta_carla_deg = yaw_carla + math.degrees(-u0[0])  # arrow direction
+        arrow_len = 4.0 + abs(u0[0]) * 8.0   # longer = more steer
+        arrow_end = carla.Location(
+            x=veh_loc.x + arrow_len * math.cos(math.radians(delta_carla_deg)),
+            y=veh_loc.y + arrow_len * math.sin(math.radians(delta_carla_deg)),
+            z=veh_loc.z + 1.2
+        )
+        # Color: green if small steer, red if saturated
+        sat_ratio = abs(u0[0]) / DELTA_MAX
+        arrow_color = carla.Color(
+            int(255 * sat_ratio),        # R: high when saturated
+            int(255 * (1-sat_ratio)),    # G: high when small
+            0
+        )
+        debug.draw_arrow(
+            carla.Location(x=veh_loc.x, y=veh_loc.y, z=veh_loc.z+1.2),
+            arrow_end,
+            thickness=0.12,
+            arrow_size=0.4,
+            color=arrow_color,
+            life_time=0.15
+        )
+
+        # 4. HUD text above vehicle
+        psi_err = x[2] - ref_psi[0]
+        psi_err = (psi_err + np.pi) % (2*np.pi) - np.pi
+        psi_err_deg = math.degrees(psi_err)
+        hud_text = (f"step:{step} err:{err:.2f}m v:{x[3]:.1f}m/s "
+                    f"d:{u0[0]:+.3f} a:{u0[1]:+.2f} yD:{psi_err_deg:+.1f}")
+        debug.draw_string(
+            carla.Location(x=veh_loc.x - 2, y=veh_loc.y, z=veh_loc.z + 5),
+            hud_text,
+            color=carla.Color(255, 255, 255),
+            life_time=0.15
+        )
+
+        sat = abs(u0[0]) >= DELTA_MAX * 0.98
+        psi_err = x[2] - ref_psi[0]
+        psi_err = (psi_err + np.pi) % (2*np.pi) - np.pi
         print(f"step {step:4d} | "
-              f"pos=({x[0]:7.1f},{x[1]:7.1f}) | "
+              f"pos=({x[0]:6.1f},{x[1]:6.1f}) | "
               f"v={x[3]:.2f} | "
-              f"δ={u0[0]:+.3f}{'SAT' if sat else '   '} "
+              f"d={u0[0]:+.3f}{'SAT' if sat else '   '} "
               f"a={u0[1]:+.2f} | "
-              f"steer={cmd.steer:+.3f} | "
-              f"err={err:.2f}m ψΔ={np.degrees(psi_err):+.1f}° | "
+              f"err={err:.2f}m "
+              f"yD={math.degrees(psi_err):+.1f}° | "
               f"{dt_ms:.1f}ms")
 
 finally:
