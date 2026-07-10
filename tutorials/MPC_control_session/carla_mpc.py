@@ -25,7 +25,7 @@ DELTA_MAX = 0.45
 A_MAX     =  3.0
 A_MIN     = -5.0
 DT        =  0.1
-V_REF     =  3.5    # slower = easier to track tight town curves
+V_REF     =  3.0    # NOTE: must match V_REF in mpc_osqp.py
 
 # ── Connect ──────────────────────────────────────────────────────
 print("[1] Connecting...")
@@ -206,9 +206,11 @@ def to_carla_cmd(u0: np.ndarray) -> carla.VehicleControl:
 
 
 # ── Kick-start ───────────────────────────────────────────────────
-print("[4] Kick-starting...")
-for _ in range(3):
-    vehicle.apply_control(carla.VehicleControl(throttle=0.4, steer=0.0))
+print("[4] Kick-starting (gentle)...")
+# Use a very small throttle — just enough to overcome static friction
+# High throttle here puts us at 5+ m/s before MPC takes over
+for _ in range(2):
+    vehicle.apply_control(carla.VehicleControl(throttle=0.25, steer=0.0))
     world.tick()
 
 # ── Main loop ────────────────────────────────────────────────────

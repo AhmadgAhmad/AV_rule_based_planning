@@ -36,7 +36,7 @@ warnings.filterwarnings('ignore')
 
 # Vehicle
 L        = 2.8       # wheelbase [m]
-V_REF    = 7.0       # reference speed [m/s]
+V_REF    = 3.0       # m/s — low enough for Town10's tight corners
 DT       = 0.1       # time step [s]
 
 # MPC horizon
@@ -45,13 +45,13 @@ NX = 4               # state dim:    [X, Y, psi, v]
 NU = 2               # control dim:  [delta, a]
 
 # State cost  Q  (penalize: X, Y, heading, speed error)
-Q_diag  = np.array([2., 2., 1., 1.])   # lower: less aggressive tracking
+Q_diag  = np.array([3., 3., 8., 4.])   # [X, Y, psi, v] — high psi+v weights stop spin+overspeed
 # Terminal cost  Qf = 5 × Q  (arrive cleanly)
-Qf_diag = 3 * Q_diag                    # was 5x, now 3x
+Qf_diag = 5 * Q_diag                    # heavy terminal: arrive aligned and at speed
 # Control cost  R
-R_diag  = np.array([80., 2.])            # much higher steer penalty → no saturation
+R_diag  = np.array([20., 1.])            # steer penalty: enough to avoid saturation on straights
 # Control rate cost  Rd  (smoothness)
-Rd_diag = np.array([60., 5.])            # higher rate cost → smooth steering
+Rd_diag = np.array([40., 3.])            # smooth but responsive
 
 # Constraints
 DELTA_MAX =  0.45     # max steering [rad]
