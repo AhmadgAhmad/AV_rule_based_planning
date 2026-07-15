@@ -17,15 +17,17 @@ Ctrl-C to stop cleanly.
 
 import carla
 import math
+import random
 import time
 import sys
 import numpy as np
 
 # ── CARLA agents path ─────────────────────────────────────────────
 # Path confirmed from your file browser (CARLA_0.9.13_RSS)
-CARLA_ROOT = '/opt/carla-simulator/CARLA_0.9.13_RSS'
-sys.path.insert(0, f'{CARLA_ROOT}/PythonAPI/carla')
-sys.path.insert(0, f'{CARLA_ROOT}/PythonAPI/carla/agents')
+CARLA_ROOT = '/Users/Nidhi/Downloads/CARLA_Latest/PythonAPI/carla'
+#sys.path.insert(0, f'{CARLA_ROOT}/PythonAPI/carla')
+#sys.path.insert(0, f'{CARLA_ROOT}/PythonAPI/carla/agents')
+sys.path.insert(0, CARLA_ROOT)
 
 from agents.navigation.controller import VehiclePIDController
 
@@ -59,6 +61,13 @@ print("[1] Connecting to CARLA...")
 client  = carla.Client('localhost', 2000)
 client.set_timeout(10.0)
 world   = client.get_world()
+# define tm and provide distance and speed info
+tm = client.get_trafficmanager(8000)
+tm.set_synchronous_mode(True)
+tm.set_random_device_seed(100)
+tm.set_global_distance_to_leading_vehicle(3.0)
+tm.global_percentage_speed_difference(10.0)
+
 bp_lib  = world.get_blueprint_library()
 cmap    = world.get_map()
 debug   = world.debug
@@ -82,6 +91,25 @@ print("[3] Spawning vehicle...")
 bp       = bp_lib.find('vehicle.tesla.model3')
 spawn_pt = cmap.get_spawn_points()[0]
 vehicle  = world.spawn_actor(bp, spawn_pt)
+#SPAWNING TRAFFIC
+traffic = []
+
+spawn_points = cmap.get_spawn_points()[1:]   # skip ego spawn
+random.shuffle(spawn_points)
+
+bps = bp_lib.filter("vehicle.*")
+
+for sp in spawn_points[:25]:
+    bp = random.choice(bps)
+    npc = world.try_spawn_actor(bp, sp)
+
+    if npc:
+        # Registers each car with traffic manager so it can drive it
+        npc.set_autopilot(True, tm.get_port())
+        # control the lights automatically
+        tm.update_vehicle_lights(npc, True)
+        traffic.append(npc)
+
 vehicle.set_autopilot(False)
 for _ in range(5):
     world.tick()
@@ -300,4 +328,8 @@ finally:
     settings.synchronous_mode = False
     world.apply_settings(settings)
     vehicle.destroy()
+    # loop through all cars and destroy in order to clean up
+    for car in traffic:
+        if car.is_alive:
+            car.destroy()
     print("   Cleaned up. Done.")
