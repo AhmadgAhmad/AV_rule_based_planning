@@ -23,10 +23,10 @@ import numpy as np
 
 # ── CARLA agents path ─────────────────────────────────────────────
 # Path confirmed from your file browser (CARLA_0.9.13_RSS)
-CARLA_ROOT = '/opt/carla-simulator/CARLA_0.9.13_RSS'
-sys.path.insert(0, f'{CARLA_ROOT}/PythonAPI/carla')
-sys.path.insert(0, f'{CARLA_ROOT}/PythonAPI/carla/agents')
-
+CARLA_ROOT = '/home/ahmad/opt/carla-simulator/CARLA_0.9.13_RSS/PythonAPI/carla/'
+# sys.path.insert(0, f'{CARLA_ROOT}/PythonAPI/carla')
+# sys.path.insert(0, f'{CARLA_ROOT}/PythonAPI/carla/agents')
+sys.path.insert(0, CARLA_ROOT)
 from agents.navigation.controller import VehiclePIDController
 
 
