@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Learned Context Detection — GRU Sequence Classifier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-void: #0A0E13;
+    --bg-panel: #131922;
+    --bg-panel-raised: #171F2A;
+    --line: #232D3A;
+    --text-primary: #E7EDF3;
+    --text-muted: #8895A7;
+    --text-faint: #57647A;
+    --amber: #E8A33D;
+    --amber-dim: #6B5427;
+    --teal: #4FC1B0;
+    --teal-dim: #275A52;
+    --red: #E5566D;
+    --red-dim: #5A2530;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg-void);
+    color: var(--text-primary);
+    font-family: var(--sans);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--teal); }
+
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 24px; }
+
+  /* ── HERO ─────────────────────────────────────────────────────────── */
+
+  .hero {
+    padding: 72px 24px 56px;
+    border-bottom: 1px solid var(--line);
+    background: radial-gradient(ellipse 900px 400px at 50% -10%, rgba(232,163,61,0.08), transparent);
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 16px;
+  }
+
+  h1 {
+    font-size: 40px;
+    font-weight: 700;
+    line-height: 1.15;
+    margin: 0 0 16px;
+    letter-spacing: -0.01em;
+  }
+
+  .hero-thesis {
+    font-size: 17px;
+    color: var(--text-muted);
+    max-width: 640px;
+    margin: 0 0 40px;
+  }
+
+  /* Telemetry readout — the signature element */
+  .telemetry {
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px 24px;
+    max-width: 640px;
+  }
+
+  .telemetry-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .tbar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .tbar-row:last-child { margin-bottom: 0; }
+
+  .tbar-name {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    width: 92px;
+    flex-shrink: 0;
+  }
+
+  .tbar-track {
+    flex: 1;
+    height: 8px;
+    background: var(--bg-void);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .tbar-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: var(--amber);
+    animation: pulse-1 6s ease-in-out infinite;
+  }
+  .tbar-fill.b2 { background: var(--teal); animation-name: pulse-2; }
+  .tbar-fill.b3 { background: #7C93C4; animation-name: pulse-3; }
+  .tbar-fill.b4 { background: var(--red); animation-name: pulse-4; }
+
+  .tbar-val {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-faint);
+    width: 40px;
+    text-align: right;
+  }
+
+  @keyframes pulse-1 { 0%,100%{width:18%;} 25%{width:78%;} 50%{width:22%;} 75%{width:12%;} }
+  @keyframes pulse-2 { 0%,100%{width:62%;} 25%{width:10%;} 50%{width:15%;} 75%{width:70%;} }
+  @keyframes pulse-3 { 0%,100%{width:15%;} 25%{width:8%;} 50%{width:58%;} 75%{width:14%;} }
+  @keyframes pulse-4 { 0%,100%{width:5%;} 25%{width:4%;} 50%{width:5%;} 75%{width:4%;} }
+
+  /* ── SPINE / SECTIONS ─────────────────────────────────────────────── */
+
+  .spine {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 0 24px;
+    position: relative;
+  }
+
+  section.tick {
+    position: relative;
+    padding: 52px 0 52px 40px;
+    border-left: 1px solid var(--line);
+    margin-left: 6px;
+  }
+
+  section.tick::before {
+    content: attr(data-t);
+    position: absolute;
+    left: -6px;
+    top: 52px;
+    transform: translateX(-50%);
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--bg-void);
+    border: 2px solid var(--amber);
+  }
+
+  section.tick::after {
+    content: attr(data-t);
+    position: absolute;
+    left: -46px;
+    top: 47px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-faint);
+    width: 34px;
+    text-align: right;
+  }
+
+  section.tick:last-of-type { border-left: 1px solid transparent; }
+
+  h2 {
+    font-size: 24px;
+    font-weight: 600;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+
+  .section-kicker {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--teal);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  p { color: var(--text-muted); margin: 12px 0; font-size: 15.5px; }
+  strong { color: var(--text-primary); font-weight: 600; }
+
+  /* ── CARDS / GRID ─────────────────────────────────────────────────── */
+
+  .triptych { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 24px 0; }
+  @media (max-width: 700px) { .triptych { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px;
+  }
+
+  .card-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .card-label.in { color: var(--teal); }
+  .card-label.arch { color: var(--amber); }
+  .card-label.out { color: #7C93C4; }
+
+  .card p { font-size: 14px; margin: 0; color: var(--text-muted); }
+
+  /* ── CALLOUT ──────────────────────────────────────────────────────── */
+
+  .callout {
+    border: 1px solid var(--red-dim);
+    background: rgba(229, 86, 109, 0.06);
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin: 20px 0;
+  }
+  .callout-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--red);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .callout p { color: var(--text-muted); font-size: 14.5px; margin: 0; }
+
+  .note {
+    border: 1px solid var(--teal-dim);
+    background: rgba(79, 193, 176, 0.06);
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin: 20px 0;
+  }
+  .note-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--teal);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .note p { color: var(--text-muted); font-size: 14.5px; margin: 0; }
+
+  /* ── TABLE ────────────────────────────────────────────────────────── */
+
+  table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13.5px; }
+  th {
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  td {
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--line);
+    color: var(--text-muted);
+  }
+  td:first-child { font-family: var(--mono); color: var(--amber); white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+
+  /* ── CODE BLOCKS ──────────────────────────────────────────────────── */
+
+  .code-block {
+    position: relative;
+    background: #0D1218;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin: 16px 0;
+    overflow: hidden;
+  }
+  .code-block pre {
+    margin: 0;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: #C9D4E0;
+  }
+  .code-block .kw { color: var(--teal); }
+  .code-block .cm { color: var(--text-faint); }
+  .code-block .st { color: var(--amber); }
+
+  .copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--text-muted);
+    background: var(--bg-panel-raised);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 5px 9px;
+    cursor: pointer;
+  }
+  .copy-btn:hover { color: var(--text-primary); border-color: var(--amber); }
+  .copy-btn:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
+
+  /* ── SVG DIAGRAM WRAP ─────────────────────────────────────────────── */
+
+  .diagram {
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px;
+    margin: 22px 0;
+    overflow-x: auto;
+  }
+  .diagram svg { display: block; margin: 0 auto; }
+  .diagram-caption {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    text-align: center;
+    margin-top: 10px;
+  }
+
+  /* ── CONCEPT CHECK ────────────────────────────────────────────────── */
+
+  .concept {
+    border: 1px solid var(--line);
+    background: var(--bg-panel);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin: 14px 0;
+  }
+  .concept-q {
+    font-weight: 600;
+    font-size: 14.5px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+  .concept-q .plus { font-family: var(--mono); color: var(--amber); flex-shrink: 0; }
+  .concept-a {
+    display: none;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+  .concept.open .concept-a { display: block; }
+  .concept.open .plus { transform: rotate(45deg); }
+  .plus { display: inline-block; transition: transform 0.15s; font-size: 18px; }
+
+  /* ── CHECKLIST ────────────────────────────────────────────────────── */
+
+  .checklist { list-style: none; padding: 0; margin: 20px 0; }
+  .checklist li {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 14.5px;
+    color: var(--text-muted);
+  }
+  .checklist li:last-child { border-bottom: none; }
+  .checklist input[type="checkbox"] {
+    margin-top: 3px;
+    width: 16px;
+    height: 16px;
+    accent-color: var(--amber);
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .checklist label { cursor: pointer; }
+  .checklist code { color: var(--amber); }
+
+  code.inline {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: var(--bg-panel-raised);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--amber);
+  }
+
+  footer {
+    text-align: center;
+    padding: 40px 24px 60px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-faint);
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Nidhi &middot; Autonomous Driving Course &middot; Context Detection Sprint</div>
+    <h1>Teaching the Planner to Read the Road</h1>
+    <p class="hero-thesis">
+      Right now <code class="inline">ContextDetector</code> looks at two numbers,
+      speed limit and junction distance, and picks one of four labels with an
+      if/elif chain. Today you're replacing that with a small network that
+      reads a short window of driving history and outputs a probability over
+      all four contexts at once. This page walks through why, and exactly how.
+    </p>
+
+    <div class="telemetry">
+      <div class="telemetry-label"><span>context_gru.predict_proba(window)</span><span>live</span></div>
+      <div class="tbar-row">
+        <span class="tbar-name">INTERSECTION</span>
+        <div class="tbar-track"><div class="tbar-fill"></div></div>
+      </div>
+      <div class="tbar-row">
+        <span class="tbar-name">HIGHWAY</span>
+        <div class="tbar-track"><div class="tbar-fill b2"></div></div>
+      </div>
+      <div class="tbar-row">
+        <span class="tbar-name">CITY</span>
+        <div class="tbar-track"><div class="tbar-fill b3"></div></div>
+      </div>
+      <div class="tbar-row">
+        <span class="tbar-name">PARKING</span>
+        <div class="tbar-track"><div class="tbar-fill b4"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="spine">
+
+  <section class="tick" data-t="t-15">
+    <div class="section-kicker">01 &middot; The Problem</div>
+    <h2>Rules don't generalize, and they don't blend</h2>
+    <p>
+      The current detector is a single frame of state run through hard thresholds:
+    </p>
+
+    <div class="code-block">
+      <button class="copy-btn" onclick="copyCode(this)">copy</button>
+      <pre><span class="kw">if</span> junction_or_light_ahead:
+    ctx = Context.INTERSECTION
+<span class="kw">elif</span> speed_limit > 50:
+    ctx = Context.HIGHWAY
+<span class="kw">elif</span> speed_limit < 20:
+    ctx = Context.PARKING
+<span class="kw">else</span>:
+    ctx = Context.CITY</pre>
+    </div>
+
+    <p>
+      Two things break here. First, it only ever looks at <strong>this instant</strong>,
+      so a car briefly slowing for a pothole on the highway can get relabeled
+      CITY for one tick and back. Second, the label is <strong>hard</strong>: 19m from
+      a junction is INTERSECTION, 21m is CITY, and <code class="inline">eta_p2</code>'s
+      weights jump discontinuously across that line even though nothing about
+      the driving situation actually changed that much.
+    </p>
+    <p>
+      What you want instead: something that looks at a short window of
+      <em>recent</em> driving state, and outputs a confidence over all four
+      contexts rather than a single hard pick. That's a sequence classifier.
+    </p>
+  </section>
+
+  <section class="tick" data-t="t-14">
+    <div class="section-kicker">02 &middot; Framing</div>
+    <h2>Yes, it's classification. Three questions to answer.</h2>
+    <p>Every supervised ML problem comes down to three things: what goes in, what architecture turns it into what comes out, and what number you minimize to make that mapping good. Here's ours.</p>
+
+    <div class="triptych">
+      <div class="card">
+        <div class="card-label in">Input</div>
+        <p>The last <strong>15 ticks</strong> (0.75s) of a 14-dimensional
+        feature vector: speed, acceleration, yaw rate, lane info, junction
+        and light distance, nearby traffic. Shape <code class="inline">(15, 14)</code>.</p>
+      </div>
+      <div class="card">
+        <div class="card-label arch">Architecture</div>
+        <p>A <strong>GRU</strong> reads the window and produces a hidden
+        state summarizing recent history, then a small <strong>MLP head</strong>
+        maps that hidden state to 4 class scores.</p>
+      </div>
+      <div class="card">
+        <div class="card-label out">Output</div>
+        <p>A <strong>softmax over 4 classes</strong>: INTERSECTION, HIGHWAY,
+        CITY, PARKING. Not a hard label. A distribution you can threshold,
+        blend, or feed straight into P2's weights.</p>
+      </div>
+    </div>
+
+    <p>
+      The only thing that makes this different from a textbook classification
+      problem is the "window of history" part. A single tick of state is
+      noisy and ambiguous right at context boundaries; a short sequence lets
+      the network smooth over that noise the same way you'd naturally judge
+      "are we near an intersection" by watching the last second of driving,
+      not by freezing one frame.
+    </p>
+  </section>
+
+  <section class="tick" data-t="t-13">
+    <div class="section-kicker">03 &middot; Input Features</div>
+    <h2>What the network actually sees</h2>
+    <p>
+      Every tick, <code class="inline">context_data_logger.py</code> pulls these
+      14 numbers straight from CARLA's privileged state, the same sources
+      <code class="inline">ContextDetector</code> already touches, just more of them:
+    </p>
+
+    <table>
+      <tr><th>Feature</th><th>What it captures</th></tr>
+      <tr><td>speed_mps</td><td>Current ego speed</td></tr>
+      <tr><td>accel_long</td><td>Longitudinal acceleration (finite difference of speed)</td></tr>
+      <tr><td>yaw_rate_dps</td><td>How fast heading is changing</td></tr>
+      <tr><td>speed_limit_kmh</td><td>Posted limit on the current lane</td></tr>
+      <tr><td>lane_width</td><td>From the OpenDRIVE map</td></tr>
+      <tr><td>lane_type</td><td>Driving / Parking / Shoulder / Bidirectional tag</td></tr>
+      <tr><td>is_junction</td><td>Is the ego inside a junction right now</td></tr>
+      <tr><td>dist_to_junction_m</td><td>How far to the nearest junction ahead</td></tr>
+      <tr><td>road_curvature</td><td>Heading change over a 15m lookahead</td></tr>
+      <tr><td>dist_to_light_m</td><td>Distance to the nearest traffic light</td></tr>
+      <tr><td>light_state</td><td>None / red / yellow / green</td></tr>
+      <tr><td>num_nearby_vehicles</td><td>Vehicles within 30m</td></tr>
+      <tr><td>num_nearby_pedestrians</td><td>Pedestrians within 30m</td></tr>
+      <tr><td>avg_rel_speed_nearby</td><td>How fast is nearby traffic moving relative to ego</td></tr>
+    </table>
+
+    <p>
+      Two of these, <code class="inline">lane_type</code> and
+      <code class="inline">dist_to_light_m</code>, are cues the current
+      rule-based detector never uses at all. That's part of the point: the
+      network isn't just a fancier way to compute the same two-input rule,
+      it has more evidence to work with.
+    </p>
+  </section>
+
+  <section class="tick" data-t="t-9">
+    <div class="section-kicker">04 &middot; Architecture</div>
+    <h2>GRU in, softmax out</h2>
+    <p>
+      A GRU (Gated Recurrent Unit) is a small recurrent network built to
+      summarize a sequence into one vector, deciding at each step how much
+      of the new input to blend in versus how much of what it already knew
+      to keep. That's exactly what you want here: "was the last second
+      mostly highway-like, with maybe a brief wobble that shouldn't flip
+      the label."
+    </p>
+
+    <div class="diagram">
+      <svg viewBox="0 0 760 260" xmlns="http://www.w3.org/2000/svg">
+        <!-- feature vectors -->
+        <g font-family="IBM Plex Mono" font-size="9" fill="#8895A7">
+          <text x="18" y="30">features</text>
+          <text x="18" y="42">(t-14 &#8594; t)</text>
+        </g>
+        <g>
+          <rect x="15" y="60" width="14" height="130" rx="2" fill="#171F2A" stroke="#232D3A"/>
+          <rect x="32" y="66" width="14" height="118" rx="2" fill="#171F2A" stroke="#232D3A"/>
+          <rect x="49" y="72" width="14" height="106" rx="2" fill="#171F2A" stroke="#232D3A"/>
+          <rect x="66" y="78" width="14" height="94" rx="2" fill="#171F2A" stroke="#232D3A"/>
+          <rect x="83" y="84" width="14" height="82" rx="2" fill="#171F2A" stroke="#232D3A"/>
+          <text x="15" y="205" font-family="IBM Plex Mono" font-size="9" fill="#57647A">15 &times; 14</text>
+        </g>
+
+        <!-- arrow 1 -->
+        <line x1="110" y1="125" x2="160" y2="125" stroke="#57647A" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+        <!-- GRU box -->
+        <rect x="165" y="55" width="150" height="140" rx="10" fill="#131922" stroke="#E8A33D" stroke-width="1.5"/>
+        <text x="240" y="90" text-anchor="middle" font-family="IBM Plex Sans" font-weight="600" font-size="14" fill="#E7EDF3">GRU</text>
+        <text x="240" y="108" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#8895A7">hidden_size=48</text>
+        <circle cx="205" cy="140" r="10" fill="none" stroke="#4FC1B0" stroke-width="1.3"/>
+        <circle cx="240" cy="150" r="10" fill="none" stroke="#4FC1B0" stroke-width="1.3"/>
+        <circle cx="275" cy="140" r="10" fill="none" stroke="#4FC1B0" stroke-width="1.3"/>
+        <text x="240" y="178" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#57647A">unrolled over 15 ticks</text>
+
+        <!-- arrow 2 -->
+        <line x1="320" y1="125" x2="368" y2="125" stroke="#57647A" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+        <!-- hidden state -->
+        <g font-family="IBM Plex Mono" font-size="9" fill="#8895A7">
+          <text x="372" y="100">final</text>
+          <text x="372" y="112">hidden</text>
+          <text x="372" y="124">state</text>
+        </g>
+        <rect x="372" y="132" width="16" height="46" rx="2" fill="#171F2A" stroke="#4FC1B0"/>
+
+        <!-- arrow 3 -->
+        <line x1="400" y1="155" x2="448" y2="125" stroke="#57647A" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+        <!-- MLP head -->
+        <rect x="452" y="70" width="120" height="110" rx="10" fill="#131922" stroke="#7C93C4" stroke-width="1.5"/>
+        <text x="512" y="98" text-anchor="middle" font-family="IBM Plex Sans" font-weight="600" font-size="13" fill="#E7EDF3">MLP head</text>
+        <text x="512" y="114" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#8895A7">Linear &#8594; ReLU</text>
+        <text x="512" y="127" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#8895A7">&#8594; Linear</text>
+        <circle cx="480" cy="150" r="6" fill="none" stroke="#7C93C4" stroke-width="1.2"/>
+        <circle cx="500" cy="150" r="6" fill="none" stroke="#7C93C4" stroke-width="1.2"/>
+        <circle cx="520" cy="150" r="6" fill="none" stroke="#7C93C4" stroke-width="1.2"/>
+        <circle cx="540" cy="150" r="6" fill="none" stroke="#7C93C4" stroke-width="1.2"/>
+
+        <!-- arrow 4 -->
+        <line x1="576" y1="125" x2="620" y2="125" stroke="#57647A" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+        <!-- softmax bars -->
+        <g font-family="IBM Plex Mono" font-size="8.5" fill="#8895A7">
+          <text x="624" y="45">softmax</text>
+          <rect x="624" y="60" width="18" height="90" fill="#171F2A" stroke="#232D3A"/>
+          <rect x="626" y="115" width="14" height="33" fill="#E8A33D"/>
+          <text x="633" y="164" text-anchor="middle">INT</text>
+
+          <rect x="650" y="60" width="18" height="90" fill="#171F2A" stroke="#232D3A"/>
+          <rect x="652" y="70" width="14" height="78" fill="#4FC1B0"/>
+          <text x="659" y="164" text-anchor="middle">HWY</text>
+
+          <rect x="676" y="60" width="18" height="90" fill="#171F2A" stroke="#232D3A"/>
+          <rect x="678" y="130" width="14" height="18" fill="#7C93C4"/>
+          <text x="685" y="164" text-anchor="middle">CTY</text>
+
+          <rect x="702" y="60" width="18" height="90" fill="#171F2A" stroke="#232D3A"/>
+          <rect x="704" y="144" width="14" height="4" fill="#E5566D"/>
+          <text x="711" y="164" text-anchor="middle">PRK</text>
+        </g>
+
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+            <path d="M0,0 L8,4 L0,8 Z" fill="#57647A"/>
+          </marker>
+        </defs>
+      </svg>
+      <div class="diagram-caption">15 ticks of feature vectors &#8594; GRU &#8594; final hidden state &#8594; MLP head &#8594; softmax over 4 contexts</div>
+    </div>
+
+    <div class="code-block">
+      <button class="copy-btn" onclick="copyCode(this)">copy</button>
+      <pre><span class="kw">class</span> ContextGRU(nn.Module):
+    <span class="kw">def</span> __init__(self, feature_dim=14, hidden_size=48, num_classes=4):
+        self.gru = nn.GRU(feature_dim, hidden_size, batch_first=<span class="kw">True</span>)
+        self.head = nn.Sequential(
+            nn.Linear(hidden_size, hidden_size // 2), nn.ReLU(),
+            nn.Linear(hidden_size // 2, num_classes),
+        )
+
+    <span class="kw">def</span> forward(self, x):          <span class="cm"># x: (batch, 15, 14)</span>
+        out, _ = self.gru(x)          <span class="cm"># (batch, 15, 48)</span>
+        last_hidden = out[:, -1, :]   <span class="cm"># final tick's summary</span>
+        <span class="kw">return</span> self.head(last_hidden)  <span class="cm"># (batch, 4) logits</span></pre>
+    </div>
+
+    <p>
+      This is a genuinely small network, on the order of ten thousand
+      parameters. "Deep" here means "has temporal structure," not "many
+      layers." A Transformer would be overkill at this sequence length and
+      would just invite the question of why you didn't use a GRU.
+    </p>
+  </section>
+
+  <section class="tick" data-t="t-5">
+    <div class="section-kicker">05 &middot; Cost Function</div>
+    <h2>Cross-entropy, plus one optional term</h2>
+    <p>
+      The main loss is ordinary <strong>categorical cross-entropy</strong>: it
+      compares the predicted probability the network assigned to the correct
+      class against 1.0, and penalizes it more the further off it is.
+      Nothing exotic. Two additions are worth having in your back pocket:
+    </p>
+
+    <div class="code-block">
+      <button class="copy-btn" onclick="copyCode(this)">copy</button>
+      <pre><span class="kw">def</span> context_loss(logits, targets, class_weights=<span class="kw">None</span>,
+                 prev_logits=<span class="kw">None</span>, temporal_weight=0.1):
+    ce = F.cross_entropy(logits, targets, weight=class_weights)
+    loss = ce
+    <span class="kw">if</span> prev_logits <span class="kw">is not None</span>:
+        <span class="cm"># penalize the prediction jumping a lot between</span>
+        <span class="cm"># consecutive ticks when nothing dramatic happened</span>
+        p, p_prev = F.softmax(logits, -1), F.softmax(prev_logits, -1)
+        loss += temporal_weight * F.mse_loss(p, p_prev.detach())
+    <span class="kw">return</span> loss</pre>
+    </div>
+
+    <ul style="color:var(--text-muted); font-size:14.5px; padding-left:18px;">
+      <li><strong>class_weights</strong>: your drives will naturally have far
+      more CITY and HIGHWAY frames than PARKING ones, unless you specifically
+      go park the car. Up-weighting rare classes stops the network from just
+      predicting the majority class every time.</li>
+      <li><strong>temporal_weight</strong>: this is the fix for the exact
+      "jumps discontinuously at the boundary" problem from Section 01. It's
+      off by default in <code class="inline">train_context_model.py</code>,
+      turn it on once the basic classifier is working.</li>
+    </ul>
+  </section>
+
+  <section class="tick" data-t="t-4">
+    <div class="section-kicker">06 &middot; Data Generation</div>
+    <h2>Where labels come from (and the honest caveat)</h2>
+    <p>
+      CARLA doesn't hand you a "context" label. <code class="inline">context_data_logger.py</code>
+      derives one from privileged map and traffic state, richer than the
+      current detector's two inputs, but still a rule, not a human
+      annotation.
+    </p>
+
+    <div class="callout">
+      <div class="callout-label">Worth saying out loud</div>
+      <p>
+        If you generated training labels using the <em>current</em>
+        rule-based detector, you'd just be training a network to imitate the
+        heuristic you're trying to replace, an expensive way to reproduce
+        the same reductive logic. The labeler in
+        <code class="inline">derive_label()</code> uses extra signal the
+        current detector never sees (the map's own lane-type tag, traffic
+        light proximity) specifically so the network has more to learn from
+        than the rule it's replacing.
+      </p>
+    </div>
+
+    <p>Concretely, today's plan with the scenario suite:</p>
+    <ol style="color:var(--text-muted); font-size:14.5px; padding-left:20px;">
+      <li>Attach <code class="inline">ContextDataLogger</code> to the tick loop of scenarios 1&ndash;4 (and ideally a few plain autopilot drives through Town04 and Town05 for broader coverage).</li>
+      <li>Each tick, it writes one CSV row: the 14 features plus a weak-supervision label.</li>
+      <li>One CSV file per drive = one <strong>route</strong>. Keep routes separate, don't merge them into one giant file.</li>
+    </ol>
+
+    <div class="note">
+      <div class="note-label">Stronger labels later</div>
+      <p>
+        If the per-tick rule ever feels too noisy once you look at real data,
+        the cleanest upgrade isn't a fancier rule, it's bucketing by known
+        map geography instead (e.g. Town04's highway loop road IDs). That
+        trades generality for near-perfect labels on the towns you've mapped,
+        worth it for a clean result section. See the note at the bottom of
+        <code class="inline">context_data_logger.py</code>.
+      </p>
+    </div>
+  </section>
+
+  <section class="tick" data-t="t-2">
+    <div class="section-kicker">07 &middot; Splitting the Data</div>
+    <h2>Split by route, never by row</h2>
+    <p>
+      Every tick in a drive looks almost identical to the tick right before
+      it. If you shuffle all rows together and split randomly, near-duplicate
+      frames from the same drive end up on both sides of the split, and your
+      validation accuracy will look great for the wrong reason.
+    </p>
+
+    <div class="diagram">
+      <svg viewBox="0 0 760 190" xmlns="http://www.w3.org/2000/svg">
+        <text x="10" y="22" font-family="IBM Plex Mono" font-size="11" fill="#E5566D">random row split &mdash; leaky</text>
+        <g>
+          <rect x="10" y="34" width="740" height="26" rx="4" fill="#171F2A" stroke="#232D3A"/>
+          <!-- interleaved colored ticks representing routes A/B/C scattered -->
+          <g font-size="0">
+            <rect x="14" y="38" width="16" height="18" fill="#E8A33D"/>
+            <rect x="34" y="38" width="16" height="18" fill="#4FC1B0"/>
+            <rect x="54" y="38" width="16" height="18" fill="#E8A33D"/>
+            <rect x="74" y="38" width="16" height="18" fill="#7C93C4"/>
+            <rect x="94" y="38" width="16" height="18" fill="#4FC1B0"/>
+            <rect x="114" y="38" width="16" height="18" fill="#E8A33D"/>
+            <rect x="134" y="38" width="16" height="18" fill="#7C93C4"/>
+            <rect x="154" y="38" width="16" height="18" fill="#E8A33D"/>
+            <rect x="174" y="38" width="16" height="18" fill="#4FC1B0"/>
+            <rect x="194" y="38" width="16" height="18" fill="#7C93C4"/>
+          </g>
+          <text x="220" y="52" font-family="IBM Plex Mono" font-size="10" fill="#57647A">... same 3 routes' rows scattered across train/val/test</text>
+        </g>
+
+        <text x="10" y="100" font-family="IBM Plex Mono" font-size="11" fill="#4FC1B0">route-level split &mdash; clean</text>
+        <g>
+          <rect x="10" y="112" width="420" height="26" rx="4" fill="#171F2A" stroke="#4FC1B0"/>
+          <text x="220" y="129" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#8895A7">train &mdash; whole routes</text>
+
+          <rect x="440" y="112" width="150" height="26" rx="4" fill="#171F2A" stroke="#E8A33D"/>
+          <text x="515" y="129" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#8895A7">val</text>
+
+          <rect x="600" y="112" width="150" height="26" rx="4" fill="#171F2A" stroke="#7C93C4"/>
+          <text x="675" y="129" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#8895A7">test</text>
+        </g>
+        <text x="10" y="165" font-family="IBM Plex Mono" font-size="10" fill="#57647A">train_context_model.py's split_routes() assigns whole CSV files, never individual rows</text>
+      </svg>
+    </div>
+
+    <p>
+      This is exactly what <code class="inline">split_routes()</code> in
+      <code class="inline">train_context_model.py</code> does: it shuffles
+      and splits the list of CSV files, then builds windows only within
+      each file. A window never straddles two different drives either,
+      since that would mix unrelated history together.
+    </p>
+  </section>
+
+  <section class="tick" data-t="now">
+    <div class="section-kicker">Check Your Understanding</div>
+    <h2>Four questions before you start training</h2>
+
+    <div class="concept" onclick="this.classList.toggle('open')">
+      <div class="concept-q">Why 15 ticks and not just 1?<span class="plus">+</span></div>
+      <div class="concept-a">A single tick is a snapshot, and snapshots right at a context boundary are ambiguous by definition, is 19m from a junction "intersection" or not. A window lets the GRU weigh recent trend, was the car consistently slowing and turning, rather than reacting to one noisy instant. 15 ticks at 20 Hz is 0.75s of history, roughly matching the REPLAN_INTERVAL scale the planner already replans on.</div>
+    </div>
+
+    <div class="concept" onclick="this.classList.toggle('open')">
+      <div class="concept-q">Why output a softmax instead of just the most likely class?<span class="plus">+</span></div>
+      <div class="concept-a">A hard label throws away exactly the information you need to fix the "eta_p2 jumps discontinuously" problem. A soft distribution lets you blend the P2 weight vectors proportionally to how confident the network is in each context, so a 60/30/5/5 split between INTERSECTION and CITY produces a smoothly interpolated weighting instead of a step function.</div>
+    </div>
+
+    <div class="concept" onclick="this.classList.toggle('open')">
+      <div class="concept-q">Why is training on the current rule-based labels not a real improvement?<span class="plus">+</span></div>
+      <div class="concept-a">If your labels come from the exact same if/elif chain you're replacing, the best the network can ever do is memorize that chain, it has no path to being more accurate than its teacher. That's why derive_label() pulls in extra signal (lane type tags, light proximity) the current detector never uses at all, so there's genuinely more to learn.</div>
+    </div>
+
+    <div class="concept" onclick="this.classList.toggle('open')">
+      <div class="concept-q">Why split by whole route instead of shuffling all rows together?<span class="plus">+</span></div>
+      <div class="concept-a">Adjacent ticks in one drive are nearly identical to each other. If a random split puts tick 401 in train and tick 402 in validation, the model isn't being tested on anything new, it's basically seen that exact frame already. Splitting by whole CSV file (whole drives) means validation routes are genuinely unseen.</div>
+    </div>
+  </section>
+
+</div>
+
+<div class="wrap" style="padding-bottom: 20px;">
+  <h2 style="margin-top:40px;">Today's Session</h2>
+  <p>Everything below maps to a real file already sitting in your project folder.</p>
+  <ul class="checklist">
+    <li>
+      <input type="checkbox" id="c1"><label for="c1">Read through <code>context_model.py</code> and confirm you can trace input shape &#8594; GRU &#8594; MLP head &#8594; output shape</label>
+    </li>
+    <li>
+      <input type="checkbox" id="c2"><label for="c2">Attach <code>ContextDataLogger</code> to one scenario's tick loop and confirm a CSV is being written</label>
+    </li>
+    <li>
+      <input type="checkbox" id="c3"><label for="c3">Collect logs from at least 3 different drives per context (aim for real PARKING coverage, it's the class you'll have the least of)</label>
+    </li>
+    <li>
+      <input type="checkbox" id="c4"><label for="c4">Run <code>train_context_model.py --class-weighted</code> and check that train and val accuracy are both climbing, not just train</label>
+    </li>
+    <li>
+      <input type="checkbox" id="c5"><label for="c5">Inspect a few misclassified windows by hand, are they genuinely ambiguous, or is <code>derive_label()</code> wrong there</label>
+    </li>
+    <li>
+      <input type="checkbox" id="c6"><label for="c6">Homework: try turning on <code>temporal_weight</code> and see if it changes how often predictions flip near context boundaries</label>
+    </li>
+  </ul>
+</div>
+
+<footer>context_model.py &middot; context_data_logger.py &middot; train_context_model.py &middot; planner.py</footer>
+
+<script>
+function copyCode(btn) {
+  const pre = btn.parentElement.querySelector('pre');
+  const text = pre.innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    const original = btn.textContent;
+    btn.textContent = 'copied';
+    setTimeout(() => { btn.textContent = original; }, 1400);
+  });
+}
+</script>
+
+</body>
+</html>
